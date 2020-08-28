@@ -1,0 +1,23 @@
+[package]
+name = "android-commander"
+version = "0.1.0"
+authors = ["Satoru Sukawa <sukawasatoru.github@outlook.jp>"]
+edition = "2018"
+
+[dependencies]
+anyhow = "=1.0.32"
+dotenv = "=0.15.0"
+env_logger = "=0.7.1"
+iced_futures = "=0.1.2"
+iced_native = "=0.2.2"
+log = "=0.4.11"
+structopt = "=0.3.16"
+thiserror = "=1.0.20"
+
+[dependencies.iced]
+version = "=0.1.1"
+features = ["tokio"]
+
+[dependencies.tokio]
+version = "=0.2.22"
+features = ["rt-threaded", "fs", "macros", "sync", "time"]
