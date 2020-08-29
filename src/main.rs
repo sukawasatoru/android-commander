@@ -34,10 +34,8 @@ enum AdbServerRecipeEvent {
 
 enum AdbServerRecipeInternalState {
     Init(tokio::sync::watch::Receiver<String>),
-    Ready(
-        tokio::sync::watch::Receiver<String>,
-        std::process::ChildStdin,
-    ),
+    Ready(tokio::sync::watch::Receiver<String>, std::process::Child),
+    Disconnecting,
     Finish,
 }
 
@@ -147,12 +145,12 @@ where
                         .stdin(std::process::Stdio::piped())
                         .spawn()
                     {
-                        Ok(data) => match data.stdin {
-                            Some(stdin) => {
-                                Some((RecipeEvent::Connected, RecipeState::Ready(rx, stdin)))
-                            }
+                        Ok(mut data) => match &data.stdin {
+                            Some(_) => Some((RecipeEvent::Connected, RecipeState::Ready(rx, data))),
                             None => {
                                 warn!("stdin not found");
+                                data.kill().ok();
+                                data.wait().ok();
                                 Some((RecipeEvent::Error, RecipeState::Finish))
                             }
                         },
@@ -161,7 +159,7 @@ where
                             Some((RecipeEvent::Error, RecipeState::Finish))
                         }
                     },
-                    RecipeState::Ready(mut rx, mut stdin) => {
+                    RecipeState::Ready(mut rx, mut child) => {
                         while let Some(data) = rx.recv().await {
                             debug!("send data: {}", data);
 
@@ -170,16 +168,26 @@ where
                                 continue;
                             }
 
-                            let ret = writeln!(stdin, "{}", data);
+                            let ret = writeln!(child.stdin.as_mut().unwrap(), "{}", data);
                             if let Err(e) = ret {
                                 warn!("{:?}", e);
-                                return Some((RecipeEvent::Error, RecipeState::Ready(rx, stdin)));
+                                child.kill().ok();
+                                child.wait().ok();
+                                return Some((RecipeEvent::Error, RecipeState::Disconnecting));
                             }
                         }
                         debug!("channel closed");
+                        child.kill().ok();
+                        child.wait().ok();
                         Some((RecipeEvent::Disconnected, RecipeState::Finish))
                     }
-                    RecipeState::Finish => None,
+                    RecipeState::Disconnecting => {
+                        Some((RecipeEvent::Disconnected, RecipeState::Finish))
+                    }
+                    RecipeState::Finish => {
+                        debug!("finish");
+                        None
+                    }
                 }
             },
         ))
