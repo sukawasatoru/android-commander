@@ -23,6 +23,8 @@ use iced_futures::subscription::Recipe;
 use iced_futures::BoxStream;
 use iced_native::{Length, Space};
 use log::{debug, info, warn};
+use std::convert::TryFrom;
+use std::hash::Hash;
 use std::io::prelude::*;
 
 #[derive(Copy, Clone, Debug)]
@@ -39,7 +41,7 @@ enum AdbServerRecipeInternalState {
     Finish,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 enum SendEventKey {
     KeyDpadUpClick,
     KeyDpadDownClick,
@@ -47,6 +49,24 @@ enum SendEventKey {
     KeyDpadRightClick,
     KeyEnterClick,
     KeyBackClick,
+}
+
+impl TryFrom<iced_native::input::keyboard::KeyCode> for SendEventKey {
+    type Error = ();
+
+    fn try_from(value: iced_native::input::keyboard::KeyCode) -> Result<Self, Self::Error> {
+        use iced_native::input::keyboard::KeyCode::*;
+
+        match value {
+            J => Ok(Self::KeyDpadDownClick),
+            K => Ok(Self::KeyDpadUpClick),
+            H => Ok(Self::KeyDpadLeftClick),
+            L => Ok(Self::KeyDpadRightClick),
+            Enter => Ok(Self::KeyEnterClick),
+            Backspace => Ok(Self::KeyBackClick),
+            _ => Err(()),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -106,6 +126,28 @@ impl SendEventKey {
     }
 }
 
+fn create_pressed_key_with_syn_sendevent(device: &SendEventDevice, key: &SendEventKey) -> String {
+    let device = device.name();
+    format!(
+        "sendevent /dev/input/{} {} {} 1 && sendevent /dev/input/{} 0 0 0",
+        device,
+        key.get_key_with_syn_type(),
+        key.get_key_with_syn_code(),
+        device,
+    )
+}
+
+fn create_release_key_with_syn_sendevent(device: &SendEventDevice, key: &SendEventKey) -> String {
+    let device = device.name();
+    format!(
+        "sendevent /dev/input/{} {} {} 0 && sendevent /dev/input/{} 0 0 0",
+        device,
+        key.get_key_with_syn_type(),
+        key.get_key_with_syn_code(),
+        device
+    )
+}
+
 fn create_click_key_with_syn_sendevent(device: &SendEventDevice, key: &SendEventKey) -> String {
     let device = device.name();
     let type_val = key.get_key_with_syn_type();
@@ -127,12 +169,10 @@ where
     type Output = AdbServerRecipeEvent;
 
     fn hash(&self, state: &mut H) {
-        use std::hash::Hash;
-
         std::any::TypeId::of::<Self>().hash(state);
     }
 
-    fn stream(self: Box<Self>, _input: BoxStream<I>) -> BoxStream<Self::Output> {
+    fn stream(self: Box<Self>, _: BoxStream<I>) -> BoxStream<Self::Output> {
         use AdbServerRecipeEvent as RecipeEvent;
         use AdbServerRecipeInternalState as RecipeState;
 
@@ -200,16 +240,17 @@ enum AdbConnectivity {
     Disconnected,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 enum AppCommand {
     AdbServerRecipeResult(AdbServerRecipeEvent),
+    Event(iced_native::Event),
     InvokeAdbResult,
     OnAdbButton,
     OnAdbConnectClicked,
     RequestSendEvent(SendEventKey),
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct WidgetStates {
     adb_button: button::State,
     button_up: button::State,
@@ -224,6 +265,7 @@ struct Hello {
     adb_connectivity: AdbConnectivity,
     adb_server_rx: tokio::sync::watch::Receiver<String>,
     adb_server_tx: tokio::sync::watch::Sender<String>,
+    pressed_key: std::collections::HashSet<SendEventKey>,
     sendevent_device: SendEventDevice,
     widget_states: WidgetStates,
 }
@@ -240,6 +282,7 @@ impl Application for Hello {
                 adb_connectivity: AdbConnectivity::Disconnected,
                 adb_server_rx,
                 adb_server_tx,
+                pressed_key: Default::default(),
                 sendevent_device: SendEventDevice::Event2,
                 widget_states: Default::default(),
             },
@@ -252,8 +295,10 @@ impl Application for Hello {
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+        use AppCommand::*;
+
         match message {
-            AppCommand::AdbServerRecipeResult(data) => match data {
+            AdbServerRecipeResult(data) => match data {
                 AdbServerRecipeEvent::Connected => {
                     info!("adb connected");
                     self.adb_connectivity = AdbConnectivity::Connected;
@@ -267,14 +312,79 @@ impl Application for Hello {
                     self.adb_server_tx.broadcast("".into()).ok();
                 }
             },
-            AppCommand::InvokeAdbResult => {
+            Event(data) => {
+                use iced_native::input::keyboard;
+                use iced_native::Event;
+
+                match self.adb_connectivity {
+                    AdbConnectivity::Connected => (),
+                    AdbConnectivity::Connecting | AdbConnectivity::Disconnected => {
+                        debug!("skip broadcasting");
+                        return Command::none();
+                    }
+                }
+
+                match data {
+                    Event::Keyboard(data) => match data {
+                        keyboard::Event::Input {
+                            state,
+                            key_code,
+                            modifiers,
+                        } => {
+                            debug!(
+                                "update Keyboard state: {:?}, key_code: {:?}, modifiers: {:?}",
+                                state, key_code, modifiers
+                            );
+
+                            let send_event_key = match SendEventKey::try_from(key_code) {
+                                Ok(data) => data,
+                                Err(_) => return Command::none(),
+                            };
+
+                            let val = match state {
+                                iced_native::input::ButtonState::Pressed => {
+                                    if self.pressed_key.contains(&send_event_key) {
+                                        return Command::none();
+                                    }
+
+                                    self.pressed_key.insert(send_event_key);
+                                    create_pressed_key_with_syn_sendevent(
+                                        &self.sendevent_device,
+                                        &send_event_key,
+                                    )
+                                }
+                                iced_native::input::ButtonState::Released => {
+                                    if !self.pressed_key.contains(&send_event_key) {
+                                        return Command::none();
+                                    }
+
+                                    self.pressed_key.remove(&send_event_key);
+                                    create_release_key_with_syn_sendevent(
+                                        &self.sendevent_device,
+                                        &send_event_key,
+                                    )
+                                }
+                            };
+                            let ret = self.adb_server_tx.broadcast(val);
+                            if let Err(e) = ret {
+                                warn!("failed to send the sendevent: {:?}", e);
+                            }
+                        }
+                        _ => (),
+                    },
+                    // TODO: support long-press for button.
+                    Event::Mouse(_) => (),
+                    _ => (),
+                }
+            }
+            InvokeAdbResult => {
                 info!("update InvokeAdbResult");
             }
-            AppCommand::OnAdbButton => {
+            OnAdbButton => {
                 info!("update OnAdbButton");
                 return Command::perform(invoke_adb(), |_| AppCommand::InvokeAdbResult);
             }
-            AppCommand::OnAdbConnectClicked => match self.adb_connectivity {
+            OnAdbConnectClicked => match self.adb_connectivity {
                 AdbConnectivity::Disconnected => {
                     self.adb_connectivity = AdbConnectivity::Connecting
                 }
@@ -286,7 +396,7 @@ impl Application for Hello {
                     self.adb_server_tx.broadcast("".into()).ok();
                 }
             },
-            AppCommand::RequestSendEvent(data) => {
+            RequestSendEvent(data) => {
                 info!("update RequestSendEvent: {:?}", data);
                 match self.adb_connectivity {
                     AdbConnectivity::Connected => (),
@@ -313,13 +423,14 @@ impl Application for Hello {
 
     fn subscription(&self) -> Subscription<Self::Message> {
         match self.adb_connectivity {
-            AdbConnectivity::Connecting | AdbConnectivity::Connected => {
-                iced::Subscription::from_recipe(AdbServerRecipe {
+            AdbConnectivity::Connecting | AdbConnectivity::Connected => Subscription::batch(vec![
+                Subscription::from_recipe(AdbServerRecipe {
                     rx: self.adb_server_rx.clone(),
                 })
-                .map(AppCommand::AdbServerRecipeResult)
-            }
-            AdbConnectivity::Disconnected => iced::Subscription::none(),
+                .map(AppCommand::AdbServerRecipeResult),
+                iced_native::subscription::events().map(AppCommand::Event),
+            ]),
+            AdbConnectivity::Disconnected => Subscription::none(),
         }
     }
 
