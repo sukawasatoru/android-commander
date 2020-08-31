@@ -313,7 +313,7 @@ impl Application for Hello {
                 }
             },
             Event(data) => {
-                use iced_native::input::keyboard;
+                use iced::keyboard;
                 use iced_native::Event;
 
                 match self.adb_connectivity {
@@ -326,46 +326,48 @@ impl Application for Hello {
 
                 match data {
                     Event::Keyboard(data) => match data {
-                        keyboard::Event::Input {
-                            state,
-                            key_code,
-                            modifiers,
-                        } => {
-                            debug!(
-                                "update Keyboard state: {:?}, key_code: {:?}, modifiers: {:?}",
-                                state, key_code, modifiers
-                            );
+                        keyboard::Event::KeyPressed { key_code, .. } => {
+                            debug!("update KeyPressed: {:?}", key_code);
 
                             let send_event_key = match SendEventKey::try_from(key_code) {
                                 Ok(data) => data,
                                 Err(_) => return Command::none(),
                             };
 
-                            let val = match state {
-                                iced_native::input::ButtonState::Pressed => {
-                                    if self.pressed_key.contains(&send_event_key) {
-                                        return Command::none();
-                                    }
+                            if self.pressed_key.contains(&send_event_key) {
+                                return Command::none();
+                            }
 
-                                    self.pressed_key.insert(send_event_key);
-                                    create_pressed_key_with_syn_sendevent(
-                                        &self.sendevent_device,
-                                        &send_event_key,
-                                    )
-                                }
-                                iced_native::input::ButtonState::Released => {
-                                    if !self.pressed_key.contains(&send_event_key) {
-                                        return Command::none();
-                                    }
+                            self.pressed_key.insert(send_event_key);
+                            let ret = self.adb_server_tx.broadcast(
+                                create_pressed_key_with_syn_sendevent(
+                                    &self.sendevent_device,
+                                    &send_event_key,
+                                ),
+                            );
+                            if let Err(e) = ret {
+                                warn!("failed to send the sendevent: {:?}", e);
+                            }
+                        }
+                        keyboard::Event::KeyReleased { key_code, .. } => {
+                            debug!("update KeyReleased: {:?}", key_code);
 
-                                    self.pressed_key.remove(&send_event_key);
-                                    create_release_key_with_syn_sendevent(
-                                        &self.sendevent_device,
-                                        &send_event_key,
-                                    )
-                                }
+                            let send_event_key = match SendEventKey::try_from(key_code) {
+                                Ok(data) => data,
+                                Err(_) => return Command::none(),
                             };
-                            let ret = self.adb_server_tx.broadcast(val);
+
+                            if !self.pressed_key.contains(&send_event_key) {
+                                return Command::none();
+                            }
+
+                            self.pressed_key.remove(&send_event_key);
+                            let ret = self.adb_server_tx.broadcast(
+                                create_release_key_with_syn_sendevent(
+                                    &self.sendevent_device,
+                                    &send_event_key,
+                                ),
+                            );
                             if let Err(e) = ret {
                                 warn!("failed to send the sendevent: {:?}", e);
                             }
