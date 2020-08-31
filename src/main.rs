@@ -49,6 +49,7 @@ enum SendEventKey {
     KeyDpadRightClick,
     KeyEnterClick,
     KeyBackClick,
+    KeySelectClick,
 }
 
 impl TryFrom<iced::keyboard::KeyCode> for SendEventKey {
@@ -127,7 +128,7 @@ impl SendEventKey {
 
         match self {
             KeyDpadUpClick | KeyDpadDownClick | KeyDpadLeftClick | KeyDpadRightClick
-            | KeyEnterClick | KeyBackClick => 1,
+            | KeyEnterClick | KeyBackClick | KeySelectClick => 1,
         }
     }
 
@@ -141,6 +142,7 @@ impl SendEventKey {
             KeyDpadRightClick => 106,
             KeyEnterClick => 28,
             KeyBackClick => 158,
+            KeySelectClick => 353,
         }
     }
 }
