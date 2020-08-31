@@ -15,8 +15,8 @@
  */
 
 use iced::{
-    button, executor, Application, Button, Checkbox, Column, Command, Element, Row, Settings,
-    Subscription, Text,
+    button, executor, pick_list, Application, Button, Checkbox, Column, Command, Element, PickList,
+    Row, Settings, Subscription, Text,
 };
 use iced_futures::futures;
 use iced_futures::subscription::Recipe;
@@ -51,11 +51,11 @@ enum SendEventKey {
     KeyBackClick,
 }
 
-impl TryFrom<iced_native::input::keyboard::KeyCode> for SendEventKey {
+impl TryFrom<iced::keyboard::KeyCode> for SendEventKey {
     type Error = ();
 
-    fn try_from(value: iced_native::input::keyboard::KeyCode) -> Result<Self, Self::Error> {
-        use iced_native::input::keyboard::KeyCode::*;
+    fn try_from(value: iced::keyboard::KeyCode) -> Result<Self, Self::Error> {
+        use iced::keyboard::KeyCode::*;
 
         match value {
             J => Ok(Self::KeyDpadDownClick),
@@ -69,7 +69,7 @@ impl TryFrom<iced_native::input::keyboard::KeyCode> for SendEventKey {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, strum_macros::EnumCount, strum_macros::EnumIter)]
 enum SendEventDevice {
     Event0,
     Event1,
@@ -83,7 +83,26 @@ enum SendEventDevice {
     Event9,
 }
 
+impl std::fmt::Display for SendEventDevice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
 impl SendEventDevice {
+    const ALL: [Self; 10] = [
+        Self::Event0,
+        Self::Event1,
+        Self::Event2,
+        Self::Event3,
+        Self::Event4,
+        Self::Event5,
+        Self::Event6,
+        Self::Event7,
+        Self::Event8,
+        Self::Event9,
+    ];
+
     fn name(&self) -> &'static str {
         use SendEventDevice::*;
 
@@ -248,6 +267,7 @@ enum AppCommand {
     OnAdbButton,
     OnAdbConnectClicked,
     RequestSendEvent(SendEventKey),
+    TargetDeviceChanged(SendEventDevice),
 }
 
 #[derive(Debug, Default)]
@@ -259,6 +279,7 @@ struct WidgetStates {
     button_right: button::State,
     button_ok: button::State,
     button_back: button::State,
+    picklist_device: pick_list::State<SendEventDevice>,
 }
 
 struct Hello {
@@ -283,7 +304,7 @@ impl Application for Hello {
                 adb_server_rx,
                 adb_server_tx,
                 pressed_key: Default::default(),
-                sendevent_device: SendEventDevice::Event2,
+                sendevent_device: SendEventDevice::Event0,
                 widget_states: Default::default(),
             },
             Command::none(),
@@ -418,6 +439,10 @@ impl Application for Hello {
                     warn!("failed to send the sendevent: {:?}", e);
                 }
             }
+            TargetDeviceChanged(device) => {
+                self.sendevent_device = device;
+                // TODO: update keymap.
+            }
         }
 
         Command::none()
@@ -458,6 +483,12 @@ impl Application for Hello {
                 AdbConnectivity::Connected => "adb: connected",
                 AdbConnectivity::Disconnected => "adb: disconnected",
             }))
+            .push(PickList::new(
+                &mut self.widget_states.picklist_device,
+                &SendEventDevice::ALL[..],
+                Some(self.sendevent_device),
+                AppCommand::TargetDeviceChanged,
+            ))
             // TODO: support disabled style.
             // TODO: support long press.
             .push(
@@ -549,4 +580,17 @@ fn main() -> anyhow::Result<()> {
     info!("Bye");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn enum_size() {
+        assert_eq!(SendEventDevice::COUNT, SendEventDevice::ALL.len());
+        for entry in SendEventDevice::iter() {
+            assert!(SendEventDevice::ALL.contains(&entry));
+        }
+    }
 }
