@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use anyhow::Context as AnyhowContext;
 use iced::{
     button, executor, pick_list, Application, Button, Checkbox, Column, Command, Element, PickList,
     Row, Settings, Subscription, Text,
@@ -23,9 +24,11 @@ use iced_futures::subscription::Recipe;
 use iced_futures::BoxStream;
 use iced_native::{Length, Space};
 use log::{debug, info, warn};
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::hash::Hash;
 use std::io::prelude::*;
+use std::num::ParseIntError;
 
 #[derive(Copy, Clone, Debug)]
 enum AdbServerRecipeEvent {
@@ -563,6 +566,184 @@ async fn invoke_adb() {
             info!("invoke_adb failed: {:?}", e);
         }
     }
+    retrieve_device_inputs();
+}
+
+#[derive(Debug)]
+struct DeviceInput {
+    dest: String,
+    name: String,
+    keys: Vec<u16>,
+    key_names: Vec<String>,
+}
+
+fn hex_str_to_u16(data: &[&str]) -> Result<Vec<u16>, ParseIntError> {
+    let mut ret = Vec::with_capacity(data.len());
+    for entry in data {
+        match u16::from_str_radix(entry, 16) {
+            Ok(d) => ret.push(d),
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(ret)
+}
+
+fn retrieve_device_inputs() -> anyhow::Result<HashMap<String, DeviceInput>> {
+    let child = std::process::Command::new("adb")
+        .args(&["shell", "getevent", "-p"])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()?;
+    let mut reader = std::io::BufReader::new(child.stdout.context("stdout is nothing")?);
+    let mut buf = String::new();
+    let mut inputs = HashMap::<String, DeviceInput>::new();
+    let mut current_input = Option::<DeviceInput>::None;
+
+    loop {
+        buf.clear();
+        let read_size = reader.read_line(&mut buf)?;
+        if read_size == 0 {
+            if let Some(d) = current_input.take() {
+                inputs.insert(d.dest.to_owned(), d);
+            }
+            break;
+        }
+
+        let stdout_array = buf
+            .trim()
+            .split(' ')
+            .filter(|d| !d.is_empty())
+            .collect::<Vec<_>>();
+        match stdout_array.as_slice() {
+            ["add", "device", ..] if stdout_array.len() == 4 => {
+                let input_name = stdout_array[3];
+                debug!("add device: {:?}", input_name);
+                if let Some(d) = current_input {
+                    inputs.insert(d.dest.to_owned(), d);
+                }
+                current_input = Some(DeviceInput {
+                    name: String::new(),
+                    dest: input_name.into(),
+                    keys: vec![],
+                    key_names: vec![],
+                });
+            }
+            ["name:", ..] if 0 < stdout_array.len() => {
+                let name = stdout_array[1];
+                debug!("name: {}", name);
+                match current_input.as_mut() {
+                    Some(d) => d.name = name.into(),
+                    None => info!("ignore name: {}", name),
+                }
+            }
+            ["events:", ..] => debug!("events"),
+            ["KEY", ..] if stdout_array.len() == 10 => match hex_str_to_u16(&stdout_array[2..]) {
+                Ok(mut keys) => match current_input.as_mut() {
+                    Some(current_input) => current_input.keys.append(&mut keys),
+                    None => info!("ignore keys: {:?}", keys),
+                },
+                Err(e) => {
+                    warn!("{:?}", e);
+                    if let Some(d) = current_input.take() {
+                        inputs.insert(d.dest.to_owned(), d);
+                    }
+                }
+            },
+            _ if stdout_array.len() == 8 => match hex_str_to_u16(&stdout_array) {
+                Ok(mut keys) => match current_input.as_mut() {
+                    Some(current_input) => current_input.keys.append(&mut keys),
+                    None => info!("ignore keys: {:?}", keys),
+                },
+                Err(e) => {
+                    warn!("{:?}", e);
+                    if let Some(d) = current_input.take() {
+                        inputs.insert(d.dest.to_owned(), d);
+                    }
+                }
+            },
+            _ => {
+                debug!("try convert to keys: {:?}", stdout_array);
+                match hex_str_to_u16(&stdout_array) {
+                    Ok(mut keys) => match current_input.as_mut() {
+                        Some(current_input) => current_input.keys.append(&mut keys),
+                        None => info!("ignore keys: {:?}", keys),
+                    },
+                    Err(e) => info!("unexpected value: {:?}", e),
+                }
+                if let Some(d) = current_input.take() {
+                    inputs.insert(d.dest.to_owned(), d);
+                }
+            }
+        }
+    }
+
+    let child = std::process::Command::new("adb")
+        .args(&["shell", "getevent", "-lp"])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()?;
+    let mut reader = std::io::BufReader::new(child.stdout.context("stdout is nothing")?);
+
+    loop {
+        buf.clear();
+        let read_size = reader.read_line(&mut buf)?;
+        if read_size == 0 {
+            if let Some(d) = current_input.take() {
+                inputs.insert(d.dest.to_owned(), d);
+            }
+            break;
+        }
+
+        let stdout_array = buf
+            .trim()
+            .split(' ')
+            .filter(|d| !d.is_empty())
+            .collect::<Vec<_>>();
+        match stdout_array.as_slice() {
+            ["add", "device", ..] if stdout_array.len() == 4 => {
+                if let Some(d) = current_input {
+                    inputs.insert(d.dest.to_owned(), d);
+                }
+
+                current_input = inputs.remove(stdout_array[3]);
+            }
+            ["name:", ..] => debug!("name: {:?}", stdout_array),
+            ["events:", ..] => debug!("events"),
+            ["KEY", ..] if stdout_array.len() == 6 => match current_input.as_mut() {
+                Some(current_input) => current_input
+                    .key_names
+                    .extend(stdout_array[2..].iter().map(|d| d.to_string())),
+                None => info!("ignore values: {:?}", stdout_array),
+            },
+            _ => match current_input.as_mut() {
+                Some(current_input)
+                    if stdout_array.iter().all(|d| {
+                        d.starts_with("KEY_")
+                            || d.starts_with("BTN_")
+                            || u16::from_str_radix(d, 16).is_ok()
+                    }) =>
+                {
+                    current_input
+                        .key_names
+                        .extend(stdout_array.iter().map(|d| d.to_string()))
+                }
+                _ => {
+                    info!("ignore values: {:?}", stdout_array);
+                }
+            },
+        }
+    }
+
+    for (name, device_input) in &inputs {
+        debug!(
+            "input_name: {}, keys.len: {}, key_names.len: {}",
+            name,
+            device_input.keys.len(),
+            device_input.key_names.len()
+        );
+    }
+
+    Ok(inputs)
 }
 
 fn main() -> anyhow::Result<()> {
