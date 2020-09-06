@@ -53,6 +53,8 @@ enum SendEventKey {
     KeyEnterClick,
     KeyBackClick,
     KeySelectClick,
+    KeyHomeClick,
+    KeyHomePageClick,
 }
 
 impl TryFrom<iced::keyboard::KeyCode> for SendEventKey {
@@ -66,6 +68,7 @@ impl TryFrom<iced::keyboard::KeyCode> for SendEventKey {
             K => Ok(Self::KeyDpadUpClick),
             H => Ok(Self::KeyDpadLeftClick),
             L => Ok(Self::KeyDpadRightClick),
+            T => Ok(Self::KeyHomeClick),
             Enter => Ok(Self::KeyEnterClick),
             Backspace => Ok(Self::KeyBackClick),
             _ => Err(()),
@@ -118,7 +121,7 @@ impl SendEventKey {
 
         match self {
             KeyDpadUpClick | KeyDpadDownClick | KeyDpadLeftClick | KeyDpadRightClick
-            | KeyEnterClick | KeyBackClick | KeySelectClick => 1,
+            | KeyEnterClick | KeyBackClick | KeySelectClick | KeyHomeClick | KeyHomePageClick => 1,
         }
     }
 
@@ -133,6 +136,8 @@ impl SendEventKey {
             KeyEnterClick => 28,
             KeyBackClick => 158,
             KeySelectClick => 353,
+            KeyHomeClick => 102,
+            KeyHomePageClick => 172,
         }
     }
 }
@@ -271,6 +276,7 @@ struct WidgetStates {
     button_right: button::State,
     button_ok: button::State,
     button_back: button::State,
+    button_home: button::State,
     picklist_device: pick_list::State<SendEventDevice>,
 }
 
@@ -548,10 +554,19 @@ impl Application for Hello {
                     ),
             )
             .push(
-                Button::new(&mut self.widget_states.button_back, Text::new("Back"))
-                    .width(button_width.clone())
-                    .height(button_height.clone())
-                    .on_press(AppCommand::RequestSendEvent(SendEventKey::KeyBackClick)),
+                Row::new()
+                    .push(
+                        Button::new(&mut self.widget_states.button_back, Text::new("Back"))
+                            .width(button_width.clone())
+                            .height(button_height.clone())
+                            .on_press(AppCommand::RequestSendEvent(SendEventKey::KeyBackClick)),
+                    )
+                    .push(
+                        Button::new(&mut self.widget_states.button_home, Text::new("Home"))
+                            .width(button_width.clone())
+                            .height(button_height.clone())
+                            .on_press(AppCommand::RequestSendEvent(SendEventKey::KeyHomeClick)),
+                    ),
             )
             .into()
     }
