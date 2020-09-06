@@ -30,7 +30,7 @@ use std::hash::Hash;
 use std::io::prelude::*;
 use std::num::ParseIntError;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 enum AdbServerRecipeEvent {
     Connected,
     Disconnected,
@@ -44,7 +44,7 @@ enum AdbServerRecipeInternalState {
     Finish,
 }
 
-#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 enum SendEventKey {
     KeyDpadUpClick,
     KeyDpadDownClick,
@@ -73,7 +73,7 @@ impl TryFrom<iced::keyboard::KeyCode> for SendEventKey {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, strum_macros::EnumCount, strum_macros::EnumIter)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum SendEventDevice {
     Event0,
     Event1,
@@ -94,19 +94,6 @@ impl std::fmt::Display for SendEventDevice {
 }
 
 impl SendEventDevice {
-    const ALL: [Self; 10] = [
-        Self::Event0,
-        Self::Event1,
-        Self::Event2,
-        Self::Event3,
-        Self::Event4,
-        Self::Event5,
-        Self::Event6,
-        Self::Event7,
-        Self::Event8,
-        Self::Event9,
-    ];
-
     fn name(&self) -> &'static str {
         use SendEventDevice::*;
 
@@ -291,6 +278,7 @@ struct Hello {
     adb_connectivity: AdbConnectivity,
     adb_server_rx: tokio::sync::watch::Receiver<String>,
     adb_server_tx: tokio::sync::watch::Sender<String>,
+    input_list: Vec<SendEventDevice>,
     pressed_key: std::collections::HashSet<SendEventKey>,
     sendevent_device: SendEventDevice,
     widget_states: WidgetStates,
@@ -308,6 +296,18 @@ impl Application for Hello {
                 adb_connectivity: AdbConnectivity::Disconnected,
                 adb_server_rx,
                 adb_server_tx,
+                input_list: vec![
+                    SendEventDevice::Event0,
+                    SendEventDevice::Event1,
+                    SendEventDevice::Event2,
+                    SendEventDevice::Event3,
+                    SendEventDevice::Event4,
+                    SendEventDevice::Event5,
+                    SendEventDevice::Event6,
+                    SendEventDevice::Event7,
+                    SendEventDevice::Event8,
+                    SendEventDevice::Event9,
+                ],
                 pressed_key: Default::default(),
                 sendevent_device: SendEventDevice::Event0,
                 widget_states: Default::default(),
@@ -364,7 +364,7 @@ impl Application for Hello {
                                 return Command::none();
                             }
 
-                            self.pressed_key.insert(send_event_key);
+                            self.pressed_key.insert(send_event_key.clone());
                             let ret = self.adb_server_tx.broadcast(
                                 create_pressed_key_with_syn_sendevent(
                                     &self.sendevent_device,
@@ -490,8 +490,8 @@ impl Application for Hello {
             }))
             .push(PickList::new(
                 &mut self.widget_states.picklist_device,
-                &SendEventDevice::ALL[..],
-                Some(self.sendevent_device),
+                self.input_list.as_slice(),
+                Some(self.sendevent_device.clone()),
                 AppCommand::TargetDeviceChanged,
             ))
             // TODO: support disabled style.
@@ -571,7 +571,7 @@ async fn invoke_adb() {
 
 #[derive(Debug)]
 struct DeviceInput {
-    dest: String,
+    input_path: String,
     name: String,
     keys: Vec<u16>,
     key_names: Vec<String>,
@@ -604,7 +604,7 @@ fn retrieve_device_inputs() -> anyhow::Result<HashMap<String, DeviceInput>> {
         let read_size = reader.read_line(&mut buf)?;
         if read_size == 0 {
             if let Some(d) = current_input.take() {
-                inputs.insert(d.dest.to_owned(), d);
+                inputs.insert(d.input_path.to_owned(), d);
             }
             break;
         }
@@ -619,11 +619,11 @@ fn retrieve_device_inputs() -> anyhow::Result<HashMap<String, DeviceInput>> {
                 let input_name = stdout_array[3];
                 debug!("add device: {:?}", input_name);
                 if let Some(d) = current_input {
-                    inputs.insert(d.dest.to_owned(), d);
+                    inputs.insert(d.input_path.to_owned(), d);
                 }
                 current_input = Some(DeviceInput {
                     name: String::new(),
-                    dest: input_name.into(),
+                    input_path: input_name.into(),
                     keys: vec![],
                     key_names: vec![],
                 });
@@ -645,7 +645,7 @@ fn retrieve_device_inputs() -> anyhow::Result<HashMap<String, DeviceInput>> {
                 Err(e) => {
                     warn!("{:?}", e);
                     if let Some(d) = current_input.take() {
-                        inputs.insert(d.dest.to_owned(), d);
+                        inputs.insert(d.input_path.to_owned(), d);
                     }
                 }
             },
@@ -657,7 +657,7 @@ fn retrieve_device_inputs() -> anyhow::Result<HashMap<String, DeviceInput>> {
                 Err(e) => {
                     warn!("{:?}", e);
                     if let Some(d) = current_input.take() {
-                        inputs.insert(d.dest.to_owned(), d);
+                        inputs.insert(d.input_path.to_owned(), d);
                     }
                 }
             },
@@ -671,7 +671,7 @@ fn retrieve_device_inputs() -> anyhow::Result<HashMap<String, DeviceInput>> {
                     Err(e) => info!("unexpected value: {:?}", e),
                 }
                 if let Some(d) = current_input.take() {
-                    inputs.insert(d.dest.to_owned(), d);
+                    inputs.insert(d.input_path.to_owned(), d);
                 }
             }
         }
@@ -689,7 +689,7 @@ fn retrieve_device_inputs() -> anyhow::Result<HashMap<String, DeviceInput>> {
         let read_size = reader.read_line(&mut buf)?;
         if read_size == 0 {
             if let Some(d) = current_input.take() {
-                inputs.insert(d.dest.to_owned(), d);
+                inputs.insert(d.input_path.to_owned(), d);
             }
             break;
         }
@@ -702,7 +702,7 @@ fn retrieve_device_inputs() -> anyhow::Result<HashMap<String, DeviceInput>> {
         match stdout_array.as_slice() {
             ["add", "device", ..] if stdout_array.len() == 4 => {
                 if let Some(d) = current_input {
-                    inputs.insert(d.dest.to_owned(), d);
+                    inputs.insert(d.input_path.to_owned(), d);
                 }
 
                 current_input = inputs.remove(stdout_array[3]);
@@ -763,17 +763,4 @@ fn main() -> anyhow::Result<()> {
     info!("Bye");
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn enum_size() {
-        assert_eq!(SendEventDevice::COUNT, SendEventDevice::ALL.len());
-        for entry in SendEventDevice::iter() {
-            assert!(SendEventDevice::ALL.contains(&entry));
-        }
-    }
 }
