@@ -747,6 +747,16 @@ fn retrieve_device_inputs() -> anyhow::Result<HashMap<String, DeviceInput>> {
 }
 
 fn main() -> anyhow::Result<()> {
+    // TODO: disable log.
+    if false {
+        if cfg!(target_os = "windows") {
+            let code = unsafe { winapi::um::wincon::FreeConsole() };
+            if code == 0 {
+                anyhow::bail!("unable to detach the console")
+            }
+        }
+    }
+
     dotenv::dotenv().ok();
     env_logger::init();
 

@@ -28,3 +28,8 @@ rev = "fb015a85d22a7c4632bd251127a89259bfd0c346"
 [dependencies.tokio]
 version = "=0.2.22"
 features = ["rt-threaded", "fs", "macros", "sync", "time"]
+
+[target.'cfg(windows)'.dependencies.winapi]
+version = "=0.3.9"
+default-features = false
+features = ["wincon"]
