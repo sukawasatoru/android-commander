@@ -323,7 +323,7 @@ impl Application for Hello {
     }
 
     fn title(&self) -> String {
-        "Hello World".into()
+        "Android Commander".into()
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
