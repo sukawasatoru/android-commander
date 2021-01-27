@@ -2,46 +2,6 @@ trigger:
 - master
 jobs:
   - job:
-    displayName: Linux
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-      - checkout: self
-        fetchDepth: 1
-      - script: cargo -v build --release
-        displayName: Build
-      - script: cargo -v clippy
-        displayName: Clippy
-      - publish: target/release/android-commander
-        artifact: android-commander-linux
-  - job:
-    displayName: Windows
-    pool:
-      vmImage: 'windows-latest'
-    steps:
-      - checkout: self
-        fetchDepth: 1
-      - script: cargo -v build --release
-        displayName: Build
-      - script: cargo -v clippy
-        displayName: Clippy
-      - publish: target/release/android-commander.exe
-        artifact: android-commander-win
-  - job:
-    displayName: macOS
-    pool:
-      vmImage: 'macOS-latest'
-    steps:
-      - checkout: self
-        fetchDepth: 1
-        displayName: Setup Rust
-      - script: cargo -v build --release
-        displayName: Build
-      - script: cargo -v clippy
-        displayName: Clippy
-      - publish: target/release/android-commander
-        artifact: android-commander-osx
-  - job:
     displayName: macOS-M1
     pool:
       name: Default
@@ -49,7 +9,7 @@ jobs:
         - rust
         - agent.os -equals Darwin
     variables:
-      RUSTUP_TOOLCHAIN: 1.48.0-x86_64
+      RUSTUP_TOOLCHAIN: 1.49.0-x86_64
     steps:
       - script: |
           cargo -v build --release 2> >(tee stderr.log >&2)
