@@ -216,15 +216,20 @@ where
                         }
                     },
                     RecipeState::Ready(mut rx, mut child) => {
-                        while let Some(data) = rx.recv().await {
-                            debug!("send data: {}", data);
+                        loop {
+                            if rx.changed().await.is_err() {
+                                break;
+                            }
+
+                            let data = rx.borrow();
+                            debug!("send data: {}", data.as_str());
 
                             // for ignore init value.
                             if data.is_empty() {
                                 continue;
                             }
 
-                            let ret = writeln!(child.stdin.as_mut().unwrap(), "{}", data);
+                            let ret = writeln!(child.stdin.as_mut().unwrap(), "{}", data.as_str());
                             if let Err(e) = ret {
                                 warn!("{:?}", e);
                                 child.kill().ok();
@@ -232,6 +237,7 @@ where
                                 return Some((RecipeEvent::Error, RecipeState::Disconnecting));
                             }
                         }
+
                         debug!("channel closed");
                         child.kill().ok();
                         child.wait().ok();
@@ -341,7 +347,7 @@ impl Application for Hello {
                 AdbServerRecipeEvent::Disconnected => {
                     info!("adb disconnected");
                     self.adb_connectivity = AdbConnectivity::Disconnected;
-                    self.adb_server_tx.broadcast("".into()).ok();
+                    self.adb_server_tx.send("".into()).ok();
                 }
             },
             Event(data) => {
@@ -371,12 +377,12 @@ impl Application for Hello {
                             }
 
                             self.pressed_key.insert(send_event_key.clone());
-                            let ret = self.adb_server_tx.broadcast(
-                                create_pressed_key_with_syn_sendevent(
-                                    &self.sendevent_device,
-                                    &send_event_key,
-                                ),
-                            );
+                            let ret =
+                                self.adb_server_tx
+                                    .send(create_pressed_key_with_syn_sendevent(
+                                        &self.sendevent_device,
+                                        &send_event_key,
+                                    ));
                             if let Err(e) = ret {
                                 warn!("failed to send the sendevent: {:?}", e);
                             }
@@ -394,12 +400,12 @@ impl Application for Hello {
                             }
 
                             self.pressed_key.remove(&send_event_key);
-                            let ret = self.adb_server_tx.broadcast(
-                                create_release_key_with_syn_sendevent(
-                                    &self.sendevent_device,
-                                    &send_event_key,
-                                ),
-                            );
+                            let ret =
+                                self.adb_server_tx
+                                    .send(create_release_key_with_syn_sendevent(
+                                        &self.sendevent_device,
+                                        &send_event_key,
+                                    ));
                             if let Err(e) = ret {
                                 warn!("failed to send the sendevent: {:?}", e);
                             }
@@ -427,7 +433,7 @@ impl Application for Hello {
                 }
                 AdbConnectivity::Connected => {
                     self.adb_connectivity = AdbConnectivity::Disconnected;
-                    self.adb_server_tx.broadcast("".into()).ok();
+                    self.adb_server_tx.send("".into()).ok();
                 }
             },
             RequestSendEvent(data) => {
@@ -440,12 +446,10 @@ impl Application for Hello {
                     }
                 }
 
-                let ret = self
-                    .adb_server_tx
-                    .broadcast(create_click_key_with_syn_sendevent(
-                        &self.sendevent_device,
-                        &data,
-                    ));
+                let ret = self.adb_server_tx.send(create_click_key_with_syn_sendevent(
+                    &self.sendevent_device,
+                    &data,
+                ));
                 if let Err(e) = ret {
                     warn!("failed to send the sendevent: {:?}", e);
                 }

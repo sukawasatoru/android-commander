@@ -14,20 +14,20 @@ thiserror = "=1.0.20"
 
 [dependencies.iced]
 git = "https://github.com/hecrj/iced.git"
-rev = "fb015a85d22a7c4632bd251127a89259bfd0c346"
+rev = "8d882d787e6b7fd7c2435f42f82933e2ed904edf"
 features = ["tokio"]
 
 [dependencies.iced_futures]
 git = "https://github.com/hecrj/iced.git"
-rev = "fb015a85d22a7c4632bd251127a89259bfd0c346"
+rev = "8d882d787e6b7fd7c2435f42f82933e2ed904edf"
 
 [dependencies.iced_native]
 git = "https://github.com/hecrj/iced.git"
-rev = "fb015a85d22a7c4632bd251127a89259bfd0c346"
+rev = "8d882d787e6b7fd7c2435f42f82933e2ed904edf"
 
 [dependencies.tokio]
-version = "=0.2.22"
-features = ["rt-threaded", "fs", "macros", "sync", "time"]
+version = "=1.1.0"
+features = ["fs", "macros", "rt-multi-thread", "sync", "time"]
 
 [target.'cfg(windows)'.dependencies.winapi]
 version = "=0.3.9"
