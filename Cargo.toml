@@ -5,12 +5,12 @@ authors = ["Satoru Sukawa <sukawasatoru.github@outlook.jp>"]
 edition = "2018"
 
 [dependencies]
-anyhow = "=1.0.32"
+anyhow = "=1.0.38"
 dotenv = "=0.15.0"
-env_logger = "=0.7.1"
-log = "=0.4.11"
-structopt = "=0.3.16"
-thiserror = "=1.0.20"
+env_logger = "=0.8.2"
+log = "=0.4.14"
+structopt = "=0.3.21"
+thiserror = "=1.0.23"
 
 [dependencies.iced]
 git = "https://github.com/hecrj/iced.git"
