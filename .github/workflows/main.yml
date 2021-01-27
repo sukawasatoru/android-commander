@@ -11,6 +11,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Setup Rust
+        run: rustup component add clippy
       - name: Build
         run: cargo build --release
       - name: Clippy
@@ -24,6 +26,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Setup Rust
+        run: rustup component add clippy
       - name: Build
         run: cargo build --release
       - name: Clippy
@@ -36,6 +40,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Setup Rust
+        run: rustup component add clippy
       - name: Build
         run: cargo build --release
       - name: Clippy
