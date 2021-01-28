@@ -1,0 +1,29 @@
+trigger:
+- master
+jobs:
+  - job:
+    displayName: macOS-M1
+    pool:
+      name: Default
+      demands:
+        - rust
+        - agent.os -equals Darwin
+    variables:
+      RUSTUP_TOOLCHAIN: 1.49.0-x86_64
+    steps:
+      - script: |
+          cargo -v build --release 2> >(tee stderr.log >&2)
+          CODE=$?
+          grep -qe ^warning stderr.log && grep -e ^warning stderr.log | xargs -ILINE echo "##vso[task.logissue type=warning]LINE" || true
+          grep -qe ^error stderr.log && grep -e ^error stderr.log | xargs -ILINE echo "##vso[task.logissue type=error]LINE" || true
+          exit $CODE
+        displayName: Build
+      - script: |
+          cargo -v clippy 2> >(tee stderr.log >&2)
+          CODE=$?
+          grep -qe ^warning stderr.log && grep -e ^warning stderr.log | xargs -ILINE echo "##vso[task.logissue type=warning]LINE" || true
+          grep -qe ^error stderr.log && grep -e ^error stderr.log | xargs -ILINE echo "##vso[task.logissue type=error]LINE" || true
+          exit $CODE
+        displayName: Clippy
+      - publish: target/release/android-commander
+        artifact: android-commander-osx
