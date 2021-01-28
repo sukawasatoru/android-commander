@@ -19,6 +19,7 @@ jobs:
         run: cargo -v clippy
       - uses: actions/upload-artifact@v2
         with:
+          name: android-commander-win
           path: target/release/android-commander.exe
           if-no-files-found: error
   build-macos:
@@ -34,6 +35,7 @@ jobs:
         run: cargo -v clippy
       - uses: actions/upload-artifact@v2
         with:
+          name: android-commander-macos
           path: target/release/android-commander
           if-no-files-found: error
   build-ubuntu:
@@ -48,6 +50,7 @@ jobs:
         run: cargo -v clippy
       - uses: actions/upload-artifact@v2
         with:
+          name: android-commander-linux
           path: target/release/android-commander
           if-no-files-found: error
   rustfmt:
