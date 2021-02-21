@@ -10,7 +10,7 @@ dotenv = "=0.15.0"
 env_logger = "=0.8.2"
 log = "=0.4.14"
 structopt = "=0.3.21"
-thiserror = "=1.0.23"
+thiserror = "=1.0.24"
 
 [dependencies.iced]
 git = "https://github.com/hecrj/iced.git"
