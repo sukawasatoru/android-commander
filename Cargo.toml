@@ -26,7 +26,7 @@ git = "https://github.com/hecrj/iced.git"
 rev = "8d882d787e6b7fd7c2435f42f82933e2ed904edf"
 
 [dependencies.tokio]
-version = "=1.1.0"
+version = "=1.6.0"
 features = ["fs", "macros", "rt-multi-thread", "sync", "time"]
 
 [target.'cfg(windows)'.dependencies.winapi]
