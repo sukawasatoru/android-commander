@@ -20,7 +20,7 @@ use iced::keyboard::{Event as KeyboardEvent, KeyCode};
 use iced::window::Settings as WindowSettings;
 use iced::{
     button, executor, futures, pick_list, Application, Button, Checkbox, Clipboard, Column,
-    Command, Element, Length, PickList, Row, Settings, Space, Subscription, Text,
+    Command, Element, Length, Row, Settings, Space, Subscription, Text,
 };
 use iced_futures::subscription::Recipe;
 use iced_native::subscription::events as native_events;
@@ -54,9 +54,7 @@ enum SendEventKey {
     KeyDpadRightClick,
     KeyEnterClick,
     KeyBackClick,
-    KeySelectClick,
     KeyHomeClick,
-    KeyHomePageClick,
 }
 
 impl TryFrom<KeyCode> for SendEventKey {
@@ -78,102 +76,31 @@ impl TryFrom<KeyCode> for SendEventKey {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-enum SendEventDevice {
-    Event0,
-    Event1,
-    Event2,
-    Event3,
-    Event4,
-    Event5,
-    Event6,
-    Event7,
-    Event8,
-    Event9,
-}
-
-impl std::fmt::Display for SendEventDevice {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.name())
-    }
-}
-
-impl SendEventDevice {
-    fn name(&self) -> &'static str {
-        use SendEventDevice::*;
-
-        match self {
-            Event0 => "event0",
-            Event1 => "event1",
-            Event2 => "event2",
-            Event3 => "event3",
-            Event4 => "event4",
-            Event5 => "event5",
-            Event6 => "event6",
-            Event7 => "event7",
-            Event8 => "event8",
-            Event9 => "event9",
-        }
-    }
-}
-
 impl SendEventKey {
-    fn get_key_with_syn_type(&self) -> u8 {
-        use SendEventKey::*;
-
+    fn get_android_key_name(&self) -> &'static str {
         match self {
-            KeyDpadUpClick | KeyDpadDownClick | KeyDpadLeftClick | KeyDpadRightClick
-            | KeyEnterClick | KeyBackClick | KeySelectClick | KeyHomeClick | KeyHomePageClick => 1,
-        }
-    }
-
-    fn get_key_with_syn_code(&self) -> u16 {
-        use SendEventKey::*;
-
-        match self {
-            KeyDpadUpClick => 103,
-            KeyDpadDownClick => 108,
-            KeyDpadLeftClick => 105,
-            KeyDpadRightClick => 106,
-            KeyEnterClick => 28,
-            KeyBackClick => 158,
-            KeySelectClick => 353,
-            KeyHomeClick => 102,
-            KeyHomePageClick => 172,
+            SendEventKey::KeyDpadUpClick => "KEYCODE_DPAD_UP",
+            SendEventKey::KeyDpadDownClick => "KEYCODE_DPAD_DOWN",
+            SendEventKey::KeyDpadLeftClick => "KEYCODE_DPAD_LEFT",
+            SendEventKey::KeyDpadRightClick => "KEYCODE_DPAD_RIGHT",
+            SendEventKey::KeyEnterClick => "KEYCODE_ENTER",
+            SendEventKey::KeyBackClick => "KEYCODE_BACK",
+            SendEventKey::KeyHomeClick => "KEYCODE_HOME",
         }
     }
 }
 
-fn create_pressed_key_with_syn_sendevent(device: &SendEventDevice, key: &SendEventKey) -> String {
-    let device = device.name();
-    format!(
-        "sendevent /dev/input/{} {} {} 1 && sendevent /dev/input/{} 0 0 0",
-        device,
-        key.get_key_with_syn_type(),
-        key.get_key_with_syn_code(),
-        device,
-    )
+fn create_pressed_key_command(key: &SendEventKey) -> String {
+    format!("down {}", key.get_android_key_name())
 }
 
-fn create_release_key_with_syn_sendevent(device: &SendEventDevice, key: &SendEventKey) -> String {
-    let device = device.name();
-    format!(
-        "sendevent /dev/input/{} {} {} 0 && sendevent /dev/input/{} 0 0 0",
-        device,
-        key.get_key_with_syn_type(),
-        key.get_key_with_syn_code(),
-        device
-    )
+fn create_release_key_command(key: &SendEventKey) -> String {
+    format!("up {}", key.get_android_key_name())
 }
 
-fn create_click_key_with_syn_sendevent(device: &SendEventDevice, key: &SendEventKey) -> String {
-    let device = device.name();
-    let type_val = key.get_key_with_syn_type();
-    let code = key.get_key_with_syn_code();
-    format!(
-        "sendevent /dev/input/{} {} {} 1 && sendevent /dev/input/{} 0 0 0 && sendevent /dev/input/{} {} {} 0 && sendevent /dev/input/{} 0 0 0",
-        device, type_val, code, device, device, type_val, code, device
-    )
+fn create_click_key_command(key: &SendEventKey) -> String {
+    let code = key.get_android_key_name();
+    format!("down {code}\nup {code}", code = code)
 }
 
 struct AdbServerRecipe {
@@ -199,7 +126,7 @@ where
             |state| async move {
                 match state {
                     RecipeState::Init(rx) => match std::process::Command::new("adb")
-                        .arg("shell")
+                        .args(&["shell", "CLASSPATH=/data/local/tmp/android-commander-server app_process / jp.tinyport.androidcommander.server.MainKt"])
                         .stdin(std::process::Stdio::piped())
                         .spawn()
                     {
@@ -272,7 +199,6 @@ enum AppCommand {
     OnAdbButton,
     OnAdbConnectClicked,
     RequestSendEvent(SendEventKey),
-    TargetDeviceChanged(SendEventDevice),
 }
 
 #[derive(Debug, Default)]
@@ -285,16 +211,12 @@ struct WidgetStates {
     button_ok: button::State,
     button_back: button::State,
     button_home: button::State,
-    picklist_device: pick_list::State<SendEventDevice>,
 }
 
 struct Hello {
     adb_connectivity: AdbConnectivity,
     adb_server_rx: tokio::sync::watch::Receiver<String>,
     adb_server_tx: tokio::sync::watch::Sender<String>,
-    input_list: Vec<SendEventDevice>,
-    pressed_key: std::collections::HashSet<SendEventKey>,
-    sendevent_device: SendEventDevice,
     widget_states: WidgetStates,
 }
 
@@ -310,20 +232,6 @@ impl Application for Hello {
                 adb_connectivity: AdbConnectivity::Disconnected,
                 adb_server_rx,
                 adb_server_tx,
-                input_list: vec![
-                    SendEventDevice::Event0,
-                    SendEventDevice::Event1,
-                    SendEventDevice::Event2,
-                    SendEventDevice::Event3,
-                    SendEventDevice::Event4,
-                    SendEventDevice::Event5,
-                    SendEventDevice::Event6,
-                    SendEventDevice::Event7,
-                    SendEventDevice::Event8,
-                    SendEventDevice::Event9,
-                ],
-                pressed_key: Default::default(),
-                sendevent_device: SendEventDevice::Event0,
                 widget_states: Default::default(),
             },
             Command::none(),
@@ -375,17 +283,9 @@ impl Application for Hello {
                                 Err(_) => return Command::none(),
                             };
 
-                            if self.pressed_key.contains(&send_event_key) {
-                                return Command::none();
-                            }
-
-                            self.pressed_key.insert(send_event_key.clone());
-                            let ret =
-                                self.adb_server_tx
-                                    .send(create_pressed_key_with_syn_sendevent(
-                                        &self.sendevent_device,
-                                        &send_event_key,
-                                    ));
+                            let ret = self
+                                .adb_server_tx
+                                .send(create_pressed_key_command(&send_event_key));
                             if let Err(e) = ret {
                                 warn!("failed to send the sendevent: {:?}", e);
                             }
@@ -398,17 +298,9 @@ impl Application for Hello {
                                 Err(_) => return Command::none(),
                             };
 
-                            if !self.pressed_key.contains(&send_event_key) {
-                                return Command::none();
-                            }
-
-                            self.pressed_key.remove(&send_event_key);
-                            let ret =
-                                self.adb_server_tx
-                                    .send(create_release_key_with_syn_sendevent(
-                                        &self.sendevent_device,
-                                        &send_event_key,
-                                    ));
+                            let ret = self
+                                .adb_server_tx
+                                .send(create_release_key_command(&send_event_key));
                             if let Err(e) = ret {
                                 warn!("failed to send the sendevent: {:?}", e);
                             }
@@ -449,17 +341,10 @@ impl Application for Hello {
                     }
                 }
 
-                let ret = self.adb_server_tx.send(create_click_key_with_syn_sendevent(
-                    &self.sendevent_device,
-                    &data,
-                ));
+                let ret = self.adb_server_tx.send(create_click_key_command(&data));
                 if let Err(e) = ret {
                     warn!("failed to send the sendevent: {:?}", e);
                 }
-            }
-            TargetDeviceChanged(device) => {
-                self.sendevent_device = device;
-                // TODO: update keymap.
             }
         }
 
@@ -501,12 +386,6 @@ impl Application for Hello {
                 AdbConnectivity::Connected => "adb: connected",
                 AdbConnectivity::Disconnected => "adb: disconnected",
             }))
-            .push(PickList::new(
-                &mut self.widget_states.picklist_device,
-                self.input_list.as_slice(),
-                Some(self.sendevent_device.clone()),
-                AppCommand::TargetDeviceChanged,
-            ))
             // TODO: support disabled style.
             // TODO: support long press.
             .push(
