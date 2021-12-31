@@ -22,22 +22,6 @@ jobs:
           name: android-commander-win
           path: target/release/android-commander.exe
           if-no-files-found: error
-  build-macos:
-    # https://github.com/actions/virtual-environments#available-environments
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Setup Rust
-        run: rustup component add clippy
-      - name: Build
-        run: cargo build --release
-      - name: Clippy
-        run: cargo -v clippy
-      - uses: actions/upload-artifact@v2
-        with:
-          name: android-commander-macos
-          path: target/release/android-commander
-          if-no-files-found: error
   build-ubuntu:
     runs-on: ubuntu-latest
     steps:

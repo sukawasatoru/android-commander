@@ -8,8 +8,6 @@ jobs:
       demands:
         - rust
         - agent.os -equals Darwin
-    variables:
-      RUSTUP_TOOLCHAIN: 1.49.0-x86_64
     steps:
       - script: |
           cargo -v build --release 2> >(tee stderr.log >&2)
