@@ -10,7 +10,7 @@ jobs:
         - agent.os -equals Darwin
     steps:
       - script: |
-          cd client && cargo -v build --release 2> >(tee ../stderr.log >&2)
+          cd client && arch -arm64 cargo -v build --release 2> >(tee ../stderr.log >&2)
           CODE=$?
           cd -
           grep -qe ^warning stderr.log && grep -e ^warning stderr.log | xargs -ILINE echo "##vso[task.logissue type=warning]LINE" || true
@@ -18,7 +18,7 @@ jobs:
           exit $CODE
         displayName: Build
       - script: |
-          cd client && cargo -v clippy 2> >(tee ../stderr.log >&2)
+          cd client && arch -arm64 cargo -v clippy 2> >(tee ../stderr.log >&2)
           CODE=$?
           cd -
           grep -qe ^warning stderr.log && grep -e ^warning stderr.log | xargs -ILINE echo "##vso[task.logissue type=warning]LINE" || true
