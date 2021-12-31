@@ -6,11 +6,28 @@ on:
   pull_request:
     branches: [ master ]
 jobs:
+  build-android-commander-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build
+        run: cd server && make compile
+      - uses: actions/upload-artifact@v2
+        with:
+          name: android-commander-server
+          path: server/app/build/outputs/android-commander-server
+          if-no-files-found: error
   build-win:
+    needs:
+      - build-android-commander-server
     # https://github.com/actions/virtual-environments#available-environments
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
+        with:
+          name: android-commander-server
+          path: server/app/build/outputs/android-commander-server
       - name: Setup Rust
         run: cd client && rustup component add clippy
       - name: Build
@@ -23,9 +40,15 @@ jobs:
           path: client/target/release/android-commander.exe
           if-no-files-found: error
   build-ubuntu:
+    needs:
+      - build-android-commander-server
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
+        with:
+          name: android-commander-server
+          path: server/app/build/outputs/android-commander-server
       - name: Setup Rust
         run: cd client && rustup component add clippy
       - name: Build
