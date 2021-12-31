@@ -23,12 +23,12 @@ use iced_futures::futures;
 use iced_futures::subscription::Recipe;
 use iced_futures::BoxStream;
 use iced_native::{Length, Space};
-use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::hash::Hash;
 use std::io::prelude::*;
 use std::num::ParseIntError;
+use tracing::{debug, info, warn};
 
 #[derive(Clone, Debug)]
 enum AdbServerRecipeEvent {
@@ -776,7 +776,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     dotenv::dotenv().ok();
-    env_logger::init();
+    tracing_subscriber::fmt::init();
 
     info!("Hello");
 
