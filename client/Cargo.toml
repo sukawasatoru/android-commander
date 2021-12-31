@@ -9,6 +9,8 @@ anyhow = "=1.0.52"
 dotenv = "=0.15.0"
 iced_futures = "*"
 iced_native = "*"
+rust-embed = "=6.3.0"
+tempfile = "=3.2.0"
 thiserror = "=1.0.30"
 tracing = "=0.1.29"
 

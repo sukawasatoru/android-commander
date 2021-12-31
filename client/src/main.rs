@@ -19,18 +19,27 @@ use iced::futures::stream::BoxStream;
 use iced::keyboard::{Event as KeyboardEvent, KeyCode};
 use iced::window::Settings as WindowSettings;
 use iced::{
-    button, executor, futures, pick_list, Application, Button, Checkbox, Clipboard, Column,
-    Command, Element, Length, Row, Settings, Space, Subscription, Text,
+    button, executor, futures, Application, Button, Checkbox, Clipboard, Column, Command, Element,
+    Length, Row, Settings, Space, Subscription, Text,
 };
 use iced_futures::subscription::Recipe;
 use iced_native::subscription::events as native_events;
 use iced_native::Event as NativeEvent;
+use rust_embed::RustEmbed;
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::fs::File;
 use std::hash::Hash;
 use std::io::prelude::*;
 use std::num::ParseIntError;
+use std::ptr::write;
+use tempfile::tempfile;
 use tracing::{debug, info, warn};
+
+#[derive(RustEmbed)]
+#[folder = "../server/app/build/outputs"]
+#[include = "android-commander-server"]
+struct Asset;
 
 #[derive(Clone, Debug)]
 enum AdbServerRecipeEvent {
@@ -125,25 +134,86 @@ where
             RecipeState::Init(self.rx),
             |state| async move {
                 match state {
-                    RecipeState::Init(rx) => match std::process::Command::new("adb")
-                        .args(&["shell", "CLASSPATH=/data/local/tmp/android-commander-server app_process / jp.tinyport.androidcommander.server.MainKt"])
-                        .stdin(std::process::Stdio::piped())
-                        .spawn()
-                    {
-                        Ok(mut data) => match &data.stdin {
-                            Some(_) => Some((RecipeEvent::Connected, RecipeState::Ready(rx, data))),
+                    RecipeState::Init(rx) => {
+                        let server_path = match tempfile::tempdir() {
+                            Ok(data) => data.path().join("android-commander-server"),
+                            Err(e) => {
+                                warn!(?e, "failed to prepare temporary directory");
+                                return Some((RecipeEvent::Error, RecipeState::Finish));
+                            }
+                        };
+
+                        info!(?server_path);
+
+                        match std::fs::create_dir_all(&server_path.parent().unwrap()) {
+                            Ok(_) => (),
+                            Err(e) => {
+                                warn!(?e, "failed to create temporary directory");
+                                return Some((RecipeEvent::Error, RecipeState::Finish));
+                            }
+                        }
+
+                        let server_file = match File::create(&server_path) {
+                            Ok(data) => data,
+                            Err(e) => {
+                                warn!(?e, "failed to create temporary file");
+                                return Some((RecipeEvent::Error, RecipeState::Finish));
+                            }
+                        };
+
+                        let server_bin = match Asset::get("android-commander-server") {
+                            Some(data) => data as rust_embed::EmbeddedFile,
                             None => {
-                                warn!("stdin not found");
-                                data.kill().ok();
-                                data.wait().ok();
+                                warn!("failed to get asset");
+                                return Some((RecipeEvent::Error, RecipeState::Finish));
+                            }
+                        };
+
+                        let mut buf = std::io::BufWriter::new(server_file);
+                        match buf.write_all(&server_bin.data) {
+                            Ok(_) => (),
+                            Err(e) => {
+                                warn!(?e, "failed to write server data");
+                                return Some((RecipeEvent::Error, RecipeState::Finish));
+                            }
+                        }
+
+                        match std::process::Command::new("adb")
+                            .args(&[
+                                "push",
+                                server_path.to_str().unwrap(),
+                                "/data/local/tmp/android-commander-server",
+                            ])
+                            .spawn()
+                        {
+                            Ok(_) => (),
+                            Err(e) => {
+                                warn!(?e, "failed to push server file");
+                                return Some((RecipeEvent::Error, RecipeState::Finish));
+                            }
+                        }
+
+                        // TODO:
+                        match std::process::Command::new("adb")
+                            .args(&["shell", "CLASSPATH=/data/local/tmp/android-commander-server app_process / jp.tinyport.androidcommander.server.MainKt"])
+                            .stdin(std::process::Stdio::piped())
+                            .spawn()
+                        {
+                            Ok(mut data) => match &data.stdin {
+                                Some(_) => Some((RecipeEvent::Connected, RecipeState::Ready(rx, data))),
+                                None => {
+                                    warn!("stdin not found");
+                                    data.kill().ok();
+                                    data.wait().ok();
+                                    Some((RecipeEvent::Error, RecipeState::Finish))
+                                }
+                            },
+                            Err(e) => {
+                                warn!("{:?}", e);
                                 Some((RecipeEvent::Error, RecipeState::Finish))
                             }
-                        },
-                        Err(e) => {
-                            warn!("{:?}", e);
-                            Some((RecipeEvent::Error, RecipeState::Finish))
                         }
-                    },
+                    }
                     RecipeState::Ready(mut rx, mut child) => {
                         loop {
                             if rx.changed().await.is_err() {
