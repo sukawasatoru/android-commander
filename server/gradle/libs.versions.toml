@@ -1,0 +1,14 @@
+[versions]
+androidx-test = "1.4.0"
+
+[libraries]
+androidx-testCore.module = "androidx.test:core-ktx"
+androidx-testCore.version.ref = "androidx-test"
+androidx-testJunit = "androidx.test.ext:junit-ktx:1.1.3"
+androidx-testRules.module = "androidx.test:rules"
+androidx-testRules.version.ref = "androidx-test"
+androidx-testRunner.module = "androidx.test:runner"
+androidx-testRunner.version.ref = "androidx-test"
+androidx-testTruth.module = "androidx.test.ext:truth"
+androidx-testTruth.version.ref = "androidx-test"
+kotlinResult = "com.michael-bull.kotlin-result:kotlin-result:1.1.13"

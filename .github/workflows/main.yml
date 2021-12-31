@@ -11,36 +11,30 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Setup Rust
-        run: rustup component add clippy
       - name: Build
-        run: cargo build --release
+        run: cd client && cargo build --release
       - name: Clippy
-        run: cargo -v clippy
+        run: cd client && cargo -v clippy
       - uses: actions/upload-artifact@v2
         with:
           name: android-commander-win
-          path: target/release/android-commander.exe
+          path: client/target/release/android-commander.exe
           if-no-files-found: error
   build-ubuntu:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Setup Rust
-        run: rustup component add clippy
       - name: Build
-        run: cargo build --release
+        run: cd client && cargo build --release
       - name: Clippy
-        run: cargo -v clippy
+        run: cd client && cargo -v clippy
       - uses: actions/upload-artifact@v2
         with:
           name: android-commander-linux
-          path: target/release/android-commander
+          path: client/target/release/android-commander
           if-no-files-found: error
   rustfmt:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Setup Rust
-        run: rustup component add rustfmt
-      - run: cargo -v fmt -- --check
+      - run: cd client && cargo -v fmt -- --check

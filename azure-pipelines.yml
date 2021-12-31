@@ -1,5 +1,5 @@
 trigger:
-- master
+  - master
 jobs:
   - job:
     displayName: macOS-M1
@@ -10,18 +10,20 @@ jobs:
         - agent.os -equals Darwin
     steps:
       - script: |
-          cargo -v build --release 2> >(tee stderr.log >&2)
+          cd client && cargo -v build --release 2> >(tee ../stderr.log >&2)
           CODE=$?
+          cd -
           grep -qe ^warning stderr.log && grep -e ^warning stderr.log | xargs -ILINE echo "##vso[task.logissue type=warning]LINE" || true
           grep -qe ^error stderr.log && grep -e ^error stderr.log | xargs -ILINE echo "##vso[task.logissue type=error]LINE" || true
           exit $CODE
         displayName: Build
       - script: |
-          cargo -v clippy 2> >(tee stderr.log >&2)
+          cd client && cargo -v clippy 2> >(tee ../stderr.log >&2)
           CODE=$?
+          cd -
           grep -qe ^warning stderr.log && grep -e ^warning stderr.log | xargs -ILINE echo "##vso[task.logissue type=warning]LINE" || true
           grep -qe ^error stderr.log && grep -e ^error stderr.log | xargs -ILINE echo "##vso[task.logissue type=error]LINE" || true
           exit $CODE
         displayName: Clippy
-      - publish: target/release/android-commander
+      - publish: client/target/release/android-commander
         artifact: android-commander-osx

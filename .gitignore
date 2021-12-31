@@ -13,6 +13,9 @@
 .idea/**/dictionaries
 .idea/**/shelf
 
+# AWS User-specific
+.idea/**/aws.xml
+
 # Generated files
 .idea/**/contentModel.xml
 
@@ -107,4 +110,4 @@ fabric.properties
 
 # End of https://www.toptal.com/developers/gitignore/api/jetbrains
 
-/target
+.idea/jarRepositories.xml
