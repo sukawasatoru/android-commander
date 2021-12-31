@@ -15,14 +15,16 @@
  */
 
 use anyhow::Context as AnyhowContext;
+use iced::futures::stream::BoxStream;
+use iced::keyboard::{Event as KeyboardEvent, KeyCode};
+use iced::window::Settings as WindowSettings;
 use iced::{
-    button, executor, pick_list, Application, Button, Checkbox, Column, Command, Element, PickList,
-    Row, Settings, Subscription, Text,
+    button, executor, futures, pick_list, Application, Button, Checkbox, Clipboard, Column,
+    Command, Element, Length, PickList, Row, Settings, Space, Subscription, Text,
 };
-use iced_futures::futures;
 use iced_futures::subscription::Recipe;
-use iced_futures::BoxStream;
-use iced_native::{Length, Space};
+use iced_native::subscription::events as native_events;
+use iced_native::Event as NativeEvent;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::hash::Hash;
@@ -57,11 +59,11 @@ enum SendEventKey {
     KeyHomePageClick,
 }
 
-impl TryFrom<iced::keyboard::KeyCode> for SendEventKey {
+impl TryFrom<KeyCode> for SendEventKey {
     type Error = ();
 
-    fn try_from(value: iced::keyboard::KeyCode) -> Result<Self, Self::Error> {
-        use iced::keyboard::KeyCode::*;
+    fn try_from(value: KeyCode) -> Result<Self, Self::Error> {
+        use KeyCode::*;
 
         match value {
             J => Ok(Self::KeyDpadDownClick),
@@ -265,7 +267,7 @@ enum AdbConnectivity {
 #[derive(Clone, Debug)]
 enum AppCommand {
     AdbServerRecipeResult(AdbServerRecipeEvent),
-    Event(iced_native::Event),
+    Event(NativeEvent),
     InvokeAdbResult,
     OnAdbButton,
     OnAdbConnectClicked,
@@ -332,7 +334,11 @@ impl Application for Hello {
         "Android Commander".into()
     }
 
-    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+    fn update(
+        &mut self,
+        message: Self::Message,
+        _clipboard: &mut Clipboard,
+    ) -> Command<Self::Message> {
         use AppCommand::*;
 
         match message {
@@ -351,9 +357,6 @@ impl Application for Hello {
                 }
             },
             Event(data) => {
-                use iced::keyboard;
-                use iced_native::Event;
-
                 match self.adb_connectivity {
                     AdbConnectivity::Connected => (),
                     AdbConnectivity::Connecting | AdbConnectivity::Disconnected => {
@@ -363,8 +366,8 @@ impl Application for Hello {
                 }
 
                 match data {
-                    Event::Keyboard(data) => match data {
-                        keyboard::Event::KeyPressed { key_code, .. } => {
+                    NativeEvent::Keyboard(data) => match data {
+                        KeyboardEvent::KeyPressed { key_code, .. } => {
                             debug!("update KeyPressed: {:?}", key_code);
 
                             let send_event_key = match SendEventKey::try_from(key_code) {
@@ -387,7 +390,7 @@ impl Application for Hello {
                                 warn!("failed to send the sendevent: {:?}", e);
                             }
                         }
-                        keyboard::Event::KeyReleased { key_code, .. } => {
+                        KeyboardEvent::KeyReleased { key_code, .. } => {
                             debug!("update KeyReleased: {:?}", key_code);
 
                             let send_event_key = match SendEventKey::try_from(key_code) {
@@ -413,7 +416,7 @@ impl Application for Hello {
                         _ => (),
                     },
                     // TODO: support long-press for button.
-                    Event::Mouse(_) => (),
+                    NativeEvent::Mouse(_) => (),
                     _ => (),
                 }
             }
@@ -470,7 +473,7 @@ impl Application for Hello {
                     rx: self.adb_server_rx.clone(),
                 })
                 .map(AppCommand::AdbServerRecipeResult),
-                iced_native::subscription::events().map(AppCommand::Event),
+                native_events().map(AppCommand::Event),
             ]),
             AdbConnectivity::Disconnected => Subscription::none(),
         }
@@ -781,7 +784,7 @@ fn main() -> anyhow::Result<()> {
     info!("Hello");
 
     Hello::run(Settings {
-        window: iced::window::Settings {
+        window: WindowSettings {
             size: (270, 320),
             ..Default::default()
         },

@@ -7,25 +7,18 @@ edition = "2018"
 [dependencies]
 anyhow = "=1.0.52"
 dotenv = "=0.15.0"
+iced_futures = "*"
+iced_native = "*"
 thiserror = "=1.0.30"
 tracing = "=0.1.29"
 
 [dependencies.iced]
-git = "https://github.com/hecrj/iced.git"
-rev = "8d882d787e6b7fd7c2435f42f82933e2ed904edf"
+version = "=0.3.0"
 features = ["tokio"]
 
-[dependencies.iced_futures]
-git = "https://github.com/hecrj/iced.git"
-rev = "8d882d787e6b7fd7c2435f42f82933e2ed904edf"
-
-[dependencies.iced_native]
-git = "https://github.com/hecrj/iced.git"
-rev = "8d882d787e6b7fd7c2435f42f82933e2ed904edf"
-
 [dependencies.tokio]
-version = "=1.1.0"
-features = ["fs", "macros", "rt-multi-thread", "sync", "time"]
+version = "=1.15.0"
+features = ["sync"]
 
 [dependencies.tracing-subscriber]
 version = "=0.3.4"
