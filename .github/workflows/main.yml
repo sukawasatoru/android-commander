@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Setup Rust
-        run: rustup component add clippy
+        run: cd client && rustup component add clippy
       - name: Build
         run: cd client && cargo build --release
       - name: Clippy
@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Setup Rust
-        run: rustup component add clippy
+        run: cd client && rustup component add clippy
       - name: Build
         run: cd client && cargo build --release
       - name: Clippy
@@ -42,5 +42,5 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Setup Rust
-        run: rustup component add rustfmt
+        run: cd client && rustup component add rustfmt
       - run: cd client && cargo -v fmt -- --check
