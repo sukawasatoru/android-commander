@@ -5,10 +5,9 @@ authors = ["Satoru Sukawa <sukawasatoru.github@outlook.jp>"]
 edition = "2018"
 
 [dependencies]
-anyhow = "=1.0.38"
+anyhow = "=1.0.52"
 dotenv = "=0.15.0"
-structopt = "=0.3.21"
-thiserror = "=1.0.23"
+thiserror = "=1.0.30"
 tracing = "=0.1.29"
 
 [dependencies.iced]
