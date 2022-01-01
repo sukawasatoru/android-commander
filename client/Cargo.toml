@@ -2,7 +2,7 @@
 name = "android-commander"
 version = "0.1.0"
 authors = ["Satoru Sukawa <sukawasatoru.github@outlook.jp>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 anyhow = "=1.0.52"

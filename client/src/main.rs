@@ -1,5 +1,5 @@
 /*
- * Copyright 2020, 2021 sukawasatoru
+ * Copyright 2020, 2021, 2022 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,8 +32,6 @@ use std::fs::File;
 use std::hash::Hash;
 use std::io::prelude::*;
 use std::num::ParseIntError;
-use std::ptr::write;
-use tempfile::tempfile;
 use tracing::{debug, info, warn};
 
 #[derive(RustEmbed)]
@@ -126,7 +124,7 @@ where
         std::any::TypeId::of::<Self>().hash(state);
     }
 
-    fn stream(self: Box<Self>, _: BoxStream<I>) -> BoxStream<Self::Output> {
+    fn stream(self: Box<Self>, _: BoxStream<'_, I>) -> BoxStream<'_, Self::Output> {
         use AdbServerRecipeEvent as RecipeEvent;
         use AdbServerRecipeInternalState as RecipeState;
 
