@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use anyhow::Context as AnyhowContext;
 use iced::futures::stream::BoxStream;
 use iced::keyboard::{Event as KeyboardEvent, KeyCode};
 use iced::window::Settings as WindowSettings;
@@ -26,12 +25,10 @@ use iced_futures::subscription::Recipe;
 use iced_native::subscription::events as native_events;
 use iced_native::Event as NativeEvent;
 use rust_embed::RustEmbed;
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::hash::Hash;
 use std::io::prelude::*;
-use std::num::ParseIntError;
 use tracing::{debug, info, warn};
 
 #[derive(RustEmbed)]
@@ -55,13 +52,13 @@ enum AdbServerRecipeInternalState {
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 enum SendEventKey {
-    KeyDpadUpClick,
-    KeyDpadDownClick,
-    KeyDpadLeftClick,
-    KeyDpadRightClick,
-    KeyEnterClick,
-    KeyBackClick,
-    KeyHomeClick,
+    DpadUp,
+    DpadDown,
+    DpadLeft,
+    DpadRight,
+    Enter,
+    Back,
+    Home,
 }
 
 impl TryFrom<KeyCode> for SendEventKey {
@@ -71,13 +68,13 @@ impl TryFrom<KeyCode> for SendEventKey {
         use KeyCode::*;
 
         match value {
-            J => Ok(Self::KeyDpadDownClick),
-            K => Ok(Self::KeyDpadUpClick),
-            H => Ok(Self::KeyDpadLeftClick),
-            L => Ok(Self::KeyDpadRightClick),
-            T => Ok(Self::KeyHomeClick),
-            Enter => Ok(Self::KeyEnterClick),
-            Backspace => Ok(Self::KeyBackClick),
+            J => Ok(Self::DpadDown),
+            K => Ok(Self::DpadUp),
+            H => Ok(Self::DpadLeft),
+            L => Ok(Self::DpadRight),
+            T => Ok(Self::Home),
+            Enter => Ok(Self::Enter),
+            Backspace => Ok(Self::Back),
             _ => Err(()),
         }
     }
@@ -86,13 +83,13 @@ impl TryFrom<KeyCode> for SendEventKey {
 impl SendEventKey {
     fn get_android_key_name(&self) -> &'static str {
         match self {
-            SendEventKey::KeyDpadUpClick => "KEYCODE_DPAD_UP",
-            SendEventKey::KeyDpadDownClick => "KEYCODE_DPAD_DOWN",
-            SendEventKey::KeyDpadLeftClick => "KEYCODE_DPAD_LEFT",
-            SendEventKey::KeyDpadRightClick => "KEYCODE_DPAD_RIGHT",
-            SendEventKey::KeyEnterClick => "KEYCODE_ENTER",
-            SendEventKey::KeyBackClick => "KEYCODE_BACK",
-            SendEventKey::KeyHomeClick => "KEYCODE_HOME",
+            SendEventKey::DpadUp => "KEYCODE_DPAD_UP",
+            SendEventKey::DpadDown => "KEYCODE_DPAD_DOWN",
+            SendEventKey::DpadLeft => "KEYCODE_DPAD_LEFT",
+            SendEventKey::DpadRight => "KEYCODE_DPAD_RIGHT",
+            SendEventKey::Enter => "KEYCODE_ENTER",
+            SendEventKey::Back => "KEYCODE_BACK",
+            SendEventKey::Home => "KEYCODE_HOME",
         }
     }
 }
@@ -458,12 +455,12 @@ impl Application for Hello {
             // TODO: support long press.
             .push(
                 Row::new()
-                    .push(Space::new(button_width.clone(), button_height.clone()))
+                    .push(Space::new(button_width, button_height))
                     .push(
                         Button::new(&mut self.widget_states.button_up, Text::new("Up (k)"))
-                            .width(button_width.clone())
-                            .height(button_height.clone())
-                            .on_press(AppCommand::RequestSendEvent(SendEventKey::KeyDpadUpClick)),
+                            .width(button_width)
+                            .height(button_height)
+                            .on_press(AppCommand::RequestSendEvent(SendEventKey::DpadUp)),
                     ),
             )
             // TODO: support disabled style.
@@ -474,52 +471,50 @@ impl Application for Hello {
                         // TODO: support disabled style.
                         // TODO: support long press.
                         Button::new(&mut self.widget_states.button_left, Text::new("Left (h)"))
-                            .width(button_width.clone())
-                            .height(button_height.clone())
-                            .on_press(AppCommand::RequestSendEvent(SendEventKey::KeyDpadLeftClick)),
+                            .width(button_width)
+                            .height(button_height)
+                            .on_press(AppCommand::RequestSendEvent(SendEventKey::DpadLeft)),
                     )
                     .push(
                         // TODO: support disabled style.
                         // TODO: support long press.
                         Button::new(&mut self.widget_states.button_ok, Text::new("Enter"))
-                            .width(button_width.clone())
-                            .height(button_height.clone())
-                            .on_press(AppCommand::RequestSendEvent(SendEventKey::KeyEnterClick)),
+                            .width(button_width)
+                            .height(button_height)
+                            .on_press(AppCommand::RequestSendEvent(SendEventKey::Enter)),
                     )
                     .push(
                         // TODO: support disabled style.
                         // TODO: support long press.
                         Button::new(&mut self.widget_states.button_right, Text::new("Right (l)"))
-                            .width(button_width.clone())
-                            .height(button_height.clone())
-                            .on_press(AppCommand::RequestSendEvent(
-                                SendEventKey::KeyDpadRightClick,
-                            )),
+                            .width(button_width)
+                            .height(button_height)
+                            .on_press(AppCommand::RequestSendEvent(SendEventKey::DpadRight)),
                     ),
             )
             .push(
                 Row::new()
-                    .push(Space::new(button_width.clone(), button_height.clone()))
+                    .push(Space::new(button_width, button_height))
                     .push(
                         Button::new(&mut self.widget_states.button_down, Text::new("Down (j)"))
-                            .width(button_width.clone())
-                            .height(button_height.clone())
-                            .on_press(AppCommand::RequestSendEvent(SendEventKey::KeyDpadDownClick)),
+                            .width(button_width)
+                            .height(button_height)
+                            .on_press(AppCommand::RequestSendEvent(SendEventKey::DpadDown)),
                     ),
             )
             .push(
                 Row::new()
                     .push(
                         Button::new(&mut self.widget_states.button_back, Text::new("Back"))
-                            .width(button_width.clone())
-                            .height(button_height.clone())
-                            .on_press(AppCommand::RequestSendEvent(SendEventKey::KeyBackClick)),
+                            .width(button_width)
+                            .height(button_height)
+                            .on_press(AppCommand::RequestSendEvent(SendEventKey::Back)),
                     )
                     .push(
                         Button::new(&mut self.widget_states.button_home, Text::new("Home"))
-                            .width(button_width.clone())
-                            .height(button_height.clone())
-                            .on_press(AppCommand::RequestSendEvent(SendEventKey::KeyHomeClick)),
+                            .width(button_width)
+                            .height(button_height)
+                            .on_press(AppCommand::RequestSendEvent(SendEventKey::Home)),
                     ),
             )
             .into()
@@ -537,26 +532,7 @@ async fn invoke_adb() {
     }
 }
 
-#[derive(Debug)]
-struct DeviceInput {
-    input_path: String,
-    name: String,
-    keys: Vec<u16>,
-    key_names: Vec<String>,
-}
-
-fn hex_str_to_u16(data: &[&str]) -> Result<Vec<u16>, ParseIntError> {
-    let mut ret = Vec::with_capacity(data.len());
-    for entry in data {
-        match u16::from_str_radix(entry, 16) {
-            Ok(d) => ret.push(d),
-            Err(e) => return Err(e),
-        }
-    }
-    Ok(ret)
-}
-
-fn main() -> anyhow::Result<()> {
+fn main() -> ! {
     // TODO: disable log.
     #[cfg(target_os = "windows")]
     if false {
@@ -577,9 +553,8 @@ fn main() -> anyhow::Result<()> {
             ..Default::default()
         },
         ..Default::default()
-    });
+    })
+    .unwrap();
 
-    info!("Bye");
-
-    Ok(())
+    unreachable!()
 }
