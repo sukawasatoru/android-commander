@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build
-        run: cd server && make compile
+        run: make -C server
       - uses: actions/upload-artifact@v2
         with:
           name: android-commander-server
@@ -29,11 +29,11 @@ jobs:
           name: android-commander-server
           path: server/app/build/outputs/android-commander-server
       - name: Setup Rust
-        run: cd client && rustup component add clippy
+        run: make -C client prepare
       - name: Build
-        run: cd client && cargo build --release
+        run: make -C client
       - name: Clippy
-        run: cd client && cargo -v clippy
+        run: make -C client lint
       - uses: actions/upload-artifact@v2
         with:
           name: android-commander-win
@@ -50,11 +50,11 @@ jobs:
           name: android-commander-server
           path: server/app/build/outputs/android-commander-server
       - name: Setup Rust
-        run: cd client && rustup component add clippy
+        run: make -C client prepare
       - name: Build
-        run: cd client && cargo build --release
+        run: make -C client
       - name: Clippy
-        run: cd client && cargo -v clippy
+        run: make -C client lint
       - uses: actions/upload-artifact@v2
         with:
           name: android-commander-linux
@@ -64,6 +64,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Setup Rust
-        run: cd client && rustup component add rustfmt
-      - run: cd client && cargo -v fmt -- --check
+      - run: make -C client prepare fmt

@@ -4,10 +4,14 @@ SHELL = /bin/bash
 MV = mv
 
 ifeq ($(OS),Windows_NT)
+    SHELL = cmd
     MV = REN
 endif
 
 VERSION_BUILD_TOOLS=31.0.0
+
+.PHONY: all
+all: compile
 
 .PHONY: compile
 compile:
