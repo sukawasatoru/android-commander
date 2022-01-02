@@ -23,7 +23,7 @@ version = "=1.15.0"
 features = ["sync"]
 
 [dependencies.tracing-subscriber]
-version = "=0.3.4"
+version = "=0.3.5"
 features = ["env-filter"]
 
 [target.'cfg(windows)'.dependencies.winapi]
