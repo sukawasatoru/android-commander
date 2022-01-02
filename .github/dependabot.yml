@@ -1,0 +1,20 @@
+# https://docs.github.com/en/code-security/supply-chain-security/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+  - directory: "/client"
+    package-ecosystem: cargo
+    schedule:
+      interval: "weekly"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 30
+  - directory: "/server"
+    package-ecosystem: gradle
+    schedule:
+      interval: "monthly"
+      timezone: "Asia/Tokyo"
+    ignore:
+      - dependency-name: "com.android.tools.build:gradle"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
