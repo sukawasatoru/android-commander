@@ -1,6 +1,35 @@
 Android Commander
 =================
 
+https://user-images.githubusercontent.com/12950393/147870786-2aa12ae9-66ab-4a49-9337-e32f62b1afc3.mov
+
+Overview
+--------
+
+![Sequence](https://user-images.githubusercontent.com/12950393/147868824-48336422-ef39-4292-a915-bbc6fc5f9ea5.png)
+
+<details>
+<summary>sd</summary>
+
+```
+actor:Actor
+client:Client "Android Commander (Client)"
+/server:Server "Android Commander (Server)"
+os:OS[a]
+
+client:os.adb push android-commander-server /data/local/tmp
+client:os.adb shell app_process android-commander-server
+os:server.new
+actor:client.
+client:server."down KEYCODE_DPAD_LEFT" (via. stdin)
+  server:KeyEvent(ACTION_DOWN,KEYCODE_DPAD_LEFT)=server.parse()
+  server[1]:_
+  server:os.injectInputEvent(KeyEvent, INJECT_INPUT_EVENT_MODE_ASYNC)
+
+client[1]:stop
+```
+</details>
+
 LICENSE
 -------
 
