@@ -538,7 +538,7 @@ fn main() -> ! {
     if false {
         let code = unsafe { winapi::um::wincon::FreeConsole() };
         if code == 0 {
-            anyhow::bail!("unable to detach the console")
+            panic!("unable to detach the console")
         }
     }
 
