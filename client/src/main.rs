@@ -14,41 +14,17 @@
  * limitations under the License.
  */
 
-use iced::futures::stream::BoxStream;
+use android_commander::adb_server_recipe::{AdbServerRecipe, AdbServerRecipeEvent};
 use iced::keyboard::{Event as KeyboardEvent, KeyCode};
 use iced::window::Settings as WindowSettings;
 use iced::{
-    button, executor, futures, Application, Button, Checkbox, Clipboard, Column, Command, Element,
-    Length, Row, Settings, Space, Subscription, Text,
+    button, executor, Application, Button, Checkbox, Clipboard, Column, Command, Element, Length,
+    Row, Settings, Space, Subscription, Text,
 };
-use iced_futures::subscription::Recipe;
 use iced_native::subscription::events as native_events;
 use iced_native::Event as NativeEvent;
-use rust_embed::RustEmbed;
-use std::convert::TryFrom;
-use std::fs::File;
 use std::hash::Hash;
-use std::io::prelude::*;
 use tracing::{debug, info, warn};
-
-#[derive(RustEmbed)]
-#[folder = "../server/app/build/outputs"]
-#[include = "android-commander-server"]
-struct Asset;
-
-#[derive(Clone, Debug)]
-enum AdbServerRecipeEvent {
-    Connected,
-    Disconnected,
-    Error,
-}
-
-enum AdbServerRecipeInternalState {
-    Init(tokio::sync::watch::Receiver<String>),
-    Ready(tokio::sync::watch::Receiver<String>, std::process::Child),
-    Disconnecting,
-    Finish,
-}
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 enum SendEventKey {
@@ -107,149 +83,6 @@ fn create_click_key_command(key: &SendEventKey) -> String {
     format!("down {code}\nup {code}", code = code)
 }
 
-struct AdbServerRecipe {
-    rx: tokio::sync::watch::Receiver<String>,
-}
-
-impl<H, I> Recipe<H, I> for AdbServerRecipe
-where
-    H: std::hash::Hasher,
-{
-    type Output = AdbServerRecipeEvent;
-
-    fn hash(&self, state: &mut H) {
-        std::any::TypeId::of::<Self>().hash(state);
-    }
-
-    fn stream(self: Box<Self>, _: BoxStream<'_, I>) -> BoxStream<'_, Self::Output> {
-        use AdbServerRecipeEvent as RecipeEvent;
-        use AdbServerRecipeInternalState as RecipeState;
-
-        Box::pin(futures::stream::unfold(
-            RecipeState::Init(self.rx),
-            |state| async move {
-                match state {
-                    RecipeState::Init(rx) => {
-                        let server_path = match tempfile::tempdir() {
-                            Ok(data) => data.path().join("android-commander-server"),
-                            Err(e) => {
-                                warn!(?e, "failed to prepare temporary directory");
-                                return Some((RecipeEvent::Error, RecipeState::Finish));
-                            }
-                        };
-
-                        info!(?server_path);
-
-                        match std::fs::create_dir_all(&server_path.parent().unwrap()) {
-                            Ok(_) => (),
-                            Err(e) => {
-                                warn!(?e, "failed to create temporary directory");
-                                return Some((RecipeEvent::Error, RecipeState::Finish));
-                            }
-                        }
-
-                        let server_file = match File::create(&server_path) {
-                            Ok(data) => data,
-                            Err(e) => {
-                                warn!(?e, "failed to create temporary file");
-                                return Some((RecipeEvent::Error, RecipeState::Finish));
-                            }
-                        };
-
-                        let server_bin = match Asset::get("android-commander-server") {
-                            Some(data) => data as rust_embed::EmbeddedFile,
-                            None => {
-                                warn!("failed to get asset");
-                                return Some((RecipeEvent::Error, RecipeState::Finish));
-                            }
-                        };
-
-                        let mut buf = std::io::BufWriter::new(server_file);
-                        match buf.write_all(&server_bin.data) {
-                            Ok(_) => (),
-                            Err(e) => {
-                                warn!(?e, "failed to write server data");
-                                return Some((RecipeEvent::Error, RecipeState::Finish));
-                            }
-                        }
-
-                        match std::process::Command::new("adb")
-                            .args(&[
-                                "push",
-                                server_path.to_str().unwrap(),
-                                "/data/local/tmp/android-commander-server",
-                            ])
-                            .spawn()
-                        {
-                            Ok(_) => (),
-                            Err(e) => {
-                                warn!(?e, "failed to push server file");
-                                return Some((RecipeEvent::Error, RecipeState::Finish));
-                            }
-                        }
-
-                        // TODO:
-                        match std::process::Command::new("adb")
-                            .args(&["shell", "CLASSPATH=/data/local/tmp/android-commander-server app_process / jp.tinyport.androidcommander.server.MainKt"])
-                            .stdin(std::process::Stdio::piped())
-                            .spawn()
-                        {
-                            Ok(mut data) => match &data.stdin {
-                                Some(_) => Some((RecipeEvent::Connected, RecipeState::Ready(rx, data))),
-                                None => {
-                                    warn!("stdin not found");
-                                    data.kill().ok();
-                                    data.wait().ok();
-                                    Some((RecipeEvent::Error, RecipeState::Finish))
-                                }
-                            },
-                            Err(e) => {
-                                warn!("{:?}", e);
-                                Some((RecipeEvent::Error, RecipeState::Finish))
-                            }
-                        }
-                    }
-                    RecipeState::Ready(mut rx, mut child) => {
-                        loop {
-                            if rx.changed().await.is_err() {
-                                break;
-                            }
-
-                            let data = rx.borrow();
-                            debug!("send data: {}", data.as_str());
-
-                            // for ignore init value.
-                            if data.is_empty() {
-                                continue;
-                            }
-
-                            let ret = writeln!(child.stdin.as_mut().unwrap(), "{}", data.as_str());
-                            if let Err(e) = ret {
-                                warn!("{:?}", e);
-                                child.kill().ok();
-                                child.wait().ok();
-                                return Some((RecipeEvent::Error, RecipeState::Disconnecting));
-                            }
-                        }
-
-                        debug!("channel closed");
-                        child.kill().ok();
-                        child.wait().ok();
-                        Some((RecipeEvent::Disconnected, RecipeState::Finish))
-                    }
-                    RecipeState::Disconnecting => {
-                        Some((RecipeEvent::Disconnected, RecipeState::Finish))
-                    }
-                    RecipeState::Finish => {
-                        debug!("finish");
-                        None
-                    }
-                }
-            },
-        ))
-    }
-}
-
 enum AdbConnectivity {
     Connected,
     Connecting,
@@ -278,14 +111,14 @@ struct WidgetStates {
     button_home: button::State,
 }
 
-struct Hello {
+struct App {
     adb_connectivity: AdbConnectivity,
     adb_server_rx: tokio::sync::watch::Receiver<String>,
     adb_server_tx: tokio::sync::watch::Sender<String>,
     widget_states: WidgetStates,
 }
 
-impl Application for Hello {
+impl Application for App {
     type Executor = executor::Default;
     type Message = AppCommand;
     type Flags = ();
@@ -547,7 +380,7 @@ fn main() -> ! {
 
     info!("Hello");
 
-    Hello::run(Settings {
+    App::run(Settings {
         window: WindowSettings {
             size: (270, 320),
             ..Default::default()

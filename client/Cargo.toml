@@ -20,7 +20,7 @@ features = ["tokio"]
 
 [dependencies.tokio]
 version = "=1.15.0"
-features = ["sync"]
+features = ["fs", "io-std", "io-util", "sync"]
 
 [dependencies.tracing-subscriber]
 version = "=0.3.5"
