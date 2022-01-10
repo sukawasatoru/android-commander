@@ -14,5 +14,8 @@
  * limitations under the License.
  */
 
-pub mod asset;
-pub mod resource;
+use rust_embed::RustEmbed;
+
+#[derive(RustEmbed)]
+#[folder = "resources"]
+pub struct Resource;

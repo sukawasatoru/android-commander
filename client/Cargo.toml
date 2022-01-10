@@ -16,7 +16,7 @@ tracing = "=0.1.29"
 
 [dependencies.iced]
 version = "=0.3.0"
-features = ["tokio"]
+features = ["svg", "tokio"]
 
 [dependencies.tokio]
 version = "=1.15.0"

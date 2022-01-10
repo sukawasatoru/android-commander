@@ -15,6 +15,7 @@
  */
 
 use android_commander::adb_server_recipe::{AdbServerRecipe, AdbServerRecipeEvent};
+use android_commander::data::resource::Resource;
 use android_commander::model::AndroidDevice;
 use android_commander::prelude::*;
 use anyhow::Context;
@@ -22,9 +23,10 @@ use iced::keyboard::{Event as KeyboardEvent, KeyCode};
 use iced::window::Settings as WindowSettings;
 use iced::{
     button, executor, pick_list, Application, Button, Checkbox, Clipboard, Column, Command,
-    Element, Length, PickList, Row, Settings, Space, Subscription, Text,
+    Element, Length, PickList, Row, Settings, Space, Subscription, Svg, Text,
 };
 use iced_native::subscription::events as native_events;
+use iced_native::widget::svg::Handle;
 use iced_native::Event as NativeEvent;
 use std::hash::Hash;
 use std::io::BufRead;
@@ -100,14 +102,14 @@ enum AppCommand {
     AdbServerRecipeResult(AdbServerRecipeEvent),
     Event(NativeEvent),
     InvokeDevicesResult(Vec<Arc<AndroidDevice>>),
-    OnDevicesClicked,
     OnAdbConnectClicked,
+    OnAdbDevicesReloadClicked,
     RequestSendEvent(SendEventKey),
 }
 
 #[derive(Debug, Default)]
 struct WidgetStates {
-    adb_button: button::State,
+    adb_devices_reload_button: button::State,
     adb_devices_state: pick_list::State<Arc<AndroidDevice>>,
     button_up: button::State,
     button_down: button::State,
@@ -255,7 +257,7 @@ impl Application for App {
                     }
                 }
             }
-            OnDevicesClicked => {
+            OnAdbDevicesReloadClicked => {
                 return Command::perform(invoke_retrieve_devices(), |data| {
                     AppCommand::InvokeDevicesResult(data)
                 });
@@ -310,15 +312,27 @@ impl Application for App {
 
         Column::new()
             .push(
-                Button::new(&mut self.widget_states.adb_button, Text::new("devices"))
-                    .on_press(AppCommand::OnDevicesClicked),
+                Row::new()
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.adb_devices_reload_button,
+                            Svg::new(Handle::from_memory(
+                                Resource::get("refresh_black_24dp.svg")
+                                    .context("refresh_black_24dp.svg")
+                                    .unwrap()
+                                    .data,
+                            )),
+                        )
+                        .on_press(AppCommand::OnAdbDevicesReloadClicked),
+                    )
+                    .push(PickList::new(
+                        &mut self.widget_states.adb_devices_state,
+                        &self.adb_devices,
+                        self.adb_devices_selected.clone(),
+                        AppCommand::AdbDevicesSelected,
+                    ))
+                    .height(button_height),
             )
-            .push(Row::new().push(PickList::new(
-                &mut self.widget_states.adb_devices_state,
-                &self.adb_devices,
-                self.adb_devices_selected.clone(),
-                AppCommand::AdbDevicesSelected,
-            )))
             .push(Checkbox::new(
                 match self.adb_connectivity {
                     AdbConnectivity::Connecting | AdbConnectivity::Disconnected => false,
