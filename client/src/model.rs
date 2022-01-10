@@ -14,7 +14,15 @@
  * limitations under the License.
  */
 
-pub mod adb_server_recipe;
-pub mod data;
-pub mod model;
-pub mod prelude;
+use std::fmt::{Display, Formatter};
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct AndroidDevice {
+    pub serial: String,
+}
+
+impl Display for AndroidDevice {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.serial)
+    }
+}

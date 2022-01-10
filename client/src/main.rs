@@ -15,15 +15,20 @@
  */
 
 use android_commander::adb_server_recipe::{AdbServerRecipe, AdbServerRecipeEvent};
+use android_commander::model::AndroidDevice;
+use android_commander::prelude::*;
+use anyhow::Context;
 use iced::keyboard::{Event as KeyboardEvent, KeyCode};
 use iced::window::Settings as WindowSettings;
 use iced::{
-    button, executor, Application, Button, Checkbox, Clipboard, Column, Command, Element, Length,
-    Row, Settings, Space, Subscription, Text,
+    button, executor, pick_list, Application, Button, Checkbox, Clipboard, Column, Command,
+    Element, Length, PickList, Row, Settings, Space, Subscription, Text,
 };
 use iced_native::subscription::events as native_events;
 use iced_native::Event as NativeEvent;
 use std::hash::Hash;
+use std::io::BufRead;
+use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -91,10 +96,11 @@ enum AdbConnectivity {
 
 #[derive(Clone, Debug)]
 enum AppCommand {
+    AdbDevicesSelected(Arc<AndroidDevice>),
     AdbServerRecipeResult(AdbServerRecipeEvent),
     Event(NativeEvent),
-    InvokeAdbResult,
-    OnAdbButton,
+    InvokeDevicesResult(Vec<Arc<AndroidDevice>>),
+    OnDevicesClicked,
     OnAdbConnectClicked,
     RequestSendEvent(SendEventKey),
 }
@@ -102,6 +108,7 @@ enum AppCommand {
 #[derive(Debug, Default)]
 struct WidgetStates {
     adb_button: button::State,
+    adb_devices_state: pick_list::State<Arc<AndroidDevice>>,
     button_up: button::State,
     button_down: button::State,
     button_left: button::State,
@@ -113,6 +120,8 @@ struct WidgetStates {
 
 struct App {
     adb_connectivity: AdbConnectivity,
+    adb_devices: Vec<Arc<AndroidDevice>>,
+    adb_devices_selected: Option<Arc<AndroidDevice>>,
     adb_server_rx: tokio::sync::watch::Receiver<String>,
     adb_server_tx: tokio::sync::watch::Sender<String>,
     widget_states: WidgetStates,
@@ -128,6 +137,8 @@ impl Application for App {
         (
             Self {
                 adb_connectivity: AdbConnectivity::Disconnected,
+                adb_devices: vec![],
+                adb_devices_selected: None,
                 adb_server_rx,
                 adb_server_tx,
                 widget_states: Default::default(),
@@ -148,6 +159,10 @@ impl Application for App {
         use AppCommand::*;
 
         match message {
+            AdbDevicesSelected(data) => {
+                info!(%data, "device selected");
+                self.adb_devices_selected = Some(data);
+            }
             AdbServerRecipeResult(data) => match data {
                 AdbServerRecipeEvent::Connected => {
                     info!("adb connected");
@@ -210,25 +225,41 @@ impl Application for App {
                     _ => (),
                 }
             }
-            InvokeAdbResult => {
-                info!("update InvokeAdbResult");
+            InvokeDevicesResult(devices) => {
+                info!("update InvokeDevicesResult");
+                self.adb_devices = devices;
+                if let Some(selected) = &self.adb_devices_selected {
+                    if !self.adb_devices.iter().any(|data| data == selected) {
+                        self.adb_devices_selected = None;
+                    }
+                }
+
+                return Command::none();
             }
-            OnAdbButton => {
-                info!("update OnAdbButton");
-                return Command::perform(invoke_adb(), |_| AppCommand::InvokeAdbResult);
+            OnAdbConnectClicked => {
+                if self.adb_devices_selected.is_none() {
+                    info!("need to select device");
+                    return Command::none();
+                }
+
+                match self.adb_connectivity {
+                    AdbConnectivity::Disconnected => {
+                        self.adb_connectivity = AdbConnectivity::Connecting
+                    }
+                    AdbConnectivity::Connecting => {
+                        warn!("TODO");
+                    }
+                    AdbConnectivity::Connected => {
+                        self.adb_connectivity = AdbConnectivity::Disconnected;
+                        self.adb_server_tx.send("".into()).ok();
+                    }
+                }
             }
-            OnAdbConnectClicked => match self.adb_connectivity {
-                AdbConnectivity::Disconnected => {
-                    self.adb_connectivity = AdbConnectivity::Connecting
-                }
-                AdbConnectivity::Connecting => {
-                    warn!("TODO");
-                }
-                AdbConnectivity::Connected => {
-                    self.adb_connectivity = AdbConnectivity::Disconnected;
-                    self.adb_server_tx.send("".into()).ok();
-                }
-            },
+            OnDevicesClicked => {
+                return Command::perform(invoke_retrieve_devices(), |data| {
+                    AppCommand::InvokeDevicesResult(data)
+                });
+            }
             RequestSendEvent(data) => {
                 info!("update RequestSendEvent: {:?}", data);
                 match self.adb_connectivity {
@@ -251,13 +282,24 @@ impl Application for App {
 
     fn subscription(&self) -> Subscription<Self::Message> {
         match self.adb_connectivity {
-            AdbConnectivity::Connecting | AdbConnectivity::Connected => Subscription::batch(vec![
-                Subscription::from_recipe(AdbServerRecipe {
-                    rx: self.adb_server_rx.clone(),
-                })
-                .map(AppCommand::AdbServerRecipeResult),
-                native_events().map(AppCommand::Event),
-            ]),
+            AdbConnectivity::Connecting | AdbConnectivity::Connected => {
+                let device = match &self.adb_devices_selected {
+                    Some(data) => data.clone(),
+                    None => {
+                        warn!("device not selected");
+                        return Subscription::none();
+                    }
+                };
+
+                Subscription::batch(vec![
+                    Subscription::from_recipe(AdbServerRecipe {
+                        device,
+                        rx: self.adb_server_rx.clone(),
+                    })
+                    .map(AppCommand::AdbServerRecipeResult),
+                    native_events().map(AppCommand::Event),
+                ])
+            }
             AdbConnectivity::Disconnected => Subscription::none(),
         }
     }
@@ -269,8 +311,14 @@ impl Application for App {
         Column::new()
             .push(
                 Button::new(&mut self.widget_states.adb_button, Text::new("devices"))
-                    .on_press(AppCommand::OnAdbButton),
+                    .on_press(AppCommand::OnDevicesClicked),
             )
+            .push(Row::new().push(PickList::new(
+                &mut self.widget_states.adb_devices_state,
+                &self.adb_devices,
+                self.adb_devices_selected.clone(),
+                AppCommand::AdbDevicesSelected,
+            )))
             .push(Checkbox::new(
                 match self.adb_connectivity {
                     AdbConnectivity::Connecting | AdbConnectivity::Disconnected => false,
@@ -354,15 +402,44 @@ impl Application for App {
     }
 }
 
-async fn invoke_adb() {
-    match std::process::Command::new("adb").arg("devices").spawn() {
-        Ok(data) => {
-            info!(?data.stdout, "invoke_adb succeeded");
-        }
+async fn invoke_retrieve_devices() -> Vec<Arc<AndroidDevice>> {
+    match retrieve_devices().await {
+        Ok(data) => data.into_iter().map(Arc::new).collect(),
         Err(e) => {
-            info!(?e, "invoke_adb failed");
+            warn!(?e, "failed to retrieve devices");
+            vec![]
         }
     }
+}
+
+async fn retrieve_devices() -> Fallible<Vec<AndroidDevice>> {
+    let child = std::process::Command::new("adb")
+        .arg("devices")
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .context("failed to invoke adb command")?;
+
+    let mut reader = std::io::BufReader::new(child.stdout.context("adb stdout")?);
+    let mut buf = String::new();
+    let mut devices = vec![];
+    loop {
+        buf.clear();
+        let bytes = reader.read_line(&mut buf).context("failed to read line")?;
+        if bytes == 0 {
+            break;
+        }
+
+        let segments = buf.split('\t').collect::<Vec<_>>();
+        if segments.len() != 2 {
+            debug!(%buf, "skip line");
+            continue;
+        }
+        devices.push(AndroidDevice {
+            serial: segments[0].to_string(),
+        });
+    }
+
+    Ok(devices)
 }
 
 fn main() -> ! {
