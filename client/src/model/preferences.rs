@@ -37,7 +37,7 @@ impl Default for KeyMap {
             dpad_down: "KEYCODE_DPAD_DOWN".into(),
             dpad_left: "KEYCODE_DPAD_LEFT".into(),
             dpad_right: "KEYCODE_DPAD_RIGHT".into(),
-            dpad_ok: "KEYCODE_ENTER".into(),
+            dpad_ok: "KEYCODE_DPAD_CENTER".into(),
             back: "KEYCODE_BACK".into(),
             home: "KEYCODE_HOME".into(),
         }

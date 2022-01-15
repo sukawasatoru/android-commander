@@ -519,7 +519,7 @@ impl Application for App {
                             .push(
                                 // TODO: support disabled style.
                                 // TODO: support long press.
-                                Button::new(&mut self.widget_states.button_ok, Text::new("Enter"))
+                                Button::new(&mut self.widget_states.button_ok, Text::new("OK"))
                                     .width(button_width)
                                     .height(button_height)
                                     .on_press(AppCommand::RequestSendEvent(SendEventKey::Ok)),
