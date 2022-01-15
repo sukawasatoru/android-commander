@@ -35,18 +35,21 @@ impl SettingsView {
 
 #[derive(Default)]
 struct WidgetState {
-    config_open_button: button::State,
+    open_prefs_button: button::State,
+    open_prefs_dir_button: button::State,
 }
 
 #[derive(Clone, Debug)]
 pub enum SettingsViewCommand {
-    OnConfigOpenButtonClicked,
+    OnOpenPrefsButtonClicked,
+    OnOpenPrefsDirButtonClicked,
 }
 
 impl SettingsView {
     pub fn update(&mut self, command: SettingsViewCommand) -> Command<SettingsViewCommand> {
         match command {
-            SettingsViewCommand::OnConfigOpenButtonClicked => self.open_prefs(),
+            SettingsViewCommand::OnOpenPrefsButtonClicked => self.open_prefs(),
+            SettingsViewCommand::OnOpenPrefsDirButtonClicked => self.open_prefs_directory(),
         }
 
         Command::none()
@@ -54,13 +57,23 @@ impl SettingsView {
 
     pub fn view(&mut self) -> Element<'_, SettingsViewCommand> {
         Column::new()
+            .spacing(16)
             .push(
                 Row::new().push(
                     Button::new(
-                        &mut self.widget_state.config_open_button,
+                        &mut self.widget_state.open_prefs_button,
                         Text::new("Open preferences"),
                     )
-                    .on_press(SettingsViewCommand::OnConfigOpenButtonClicked),
+                    .on_press(SettingsViewCommand::OnOpenPrefsButtonClicked),
+                ),
+            )
+            .push(
+                Row::new().push(
+                    Button::new(
+                        &mut self.widget_state.open_prefs_dir_button,
+                        Text::new("Open preferences directory"),
+                    )
+                    .on_press(SettingsViewCommand::OnOpenPrefsDirButtonClicked),
                 ),
             )
             .into()
@@ -103,5 +116,29 @@ impl SettingsView {
         }
 
         warn!(?filer_result, %filer, "failed to open preferences");
+    }
+
+    fn open_prefs_directory(&self) {
+        let filer = if cfg!(target_os = "windows") {
+            "explorer"
+        } else if cfg!(target_os = "macos") {
+            "open"
+        } else {
+            "xdg-open"
+        };
+
+        let dir = match self.config_file_path.parent() {
+            Some(data) => data,
+            None => return,
+        };
+
+        let ret = std::process::Command::new(filer)
+            .arg(dir.as_os_str())
+            .spawn();
+
+        match ret {
+            Ok(_) => debug!("succeeded"),
+            Err(e) => warn!(?e, %filer, "failed to open directory"),
+        }
     }
 }
