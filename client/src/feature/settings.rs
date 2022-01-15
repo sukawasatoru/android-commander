@@ -35,12 +35,14 @@ impl SettingsView {
 
 #[derive(Default)]
 struct WidgetState {
+    open_keycode_references_button: button::State,
     open_prefs_button: button::State,
     open_prefs_dir_button: button::State,
 }
 
 #[derive(Clone, Debug)]
 pub enum SettingsViewCommand {
+    OnOpenKeycodeReferencesButtonClicked,
     OnOpenPrefsButtonClicked,
     OnOpenPrefsDirButtonClicked,
 }
@@ -50,6 +52,7 @@ impl SettingsView {
         match command {
             SettingsViewCommand::OnOpenPrefsButtonClicked => self.open_prefs(),
             SettingsViewCommand::OnOpenPrefsDirButtonClicked => self.open_prefs_directory(),
+            SettingsViewCommand::OnOpenKeycodeReferencesButtonClicked => open_keycode_references(),
         }
 
         Command::none()
@@ -76,6 +79,15 @@ impl SettingsView {
                     .on_press(SettingsViewCommand::OnOpenPrefsDirButtonClicked),
                 ),
             )
+            .push(
+                Row::new().push(
+                    Button::new(
+                        &mut self.widget_state.open_keycode_references_button,
+                        Text::new("Open KeyCode references"),
+                    )
+                    .on_press(SettingsViewCommand::OnOpenKeycodeReferencesButtonClicked),
+                ),
+            )
             .into()
     }
 
@@ -97,13 +109,7 @@ impl SettingsView {
             }
         }
 
-        let filer = if cfg!(target_os = "windows") {
-            "explorer"
-        } else if cfg!(target_os = "macos") {
-            "open"
-        } else {
-            "xdg-open"
-        };
+        let filer = get_filer();
 
         debug!(%filer, "use filer");
         let filer_result = std::process::Command::new(filer)
@@ -119,13 +125,7 @@ impl SettingsView {
     }
 
     fn open_prefs_directory(&self) {
-        let filer = if cfg!(target_os = "windows") {
-            "explorer"
-        } else if cfg!(target_os = "macos") {
-            "open"
-        } else {
-            "xdg-open"
-        };
+        let filer = get_filer();
 
         let dir = match self.config_file_path.parent() {
             Some(data) => data,
@@ -140,5 +140,28 @@ impl SettingsView {
             Ok(_) => debug!("succeeded"),
             Err(e) => warn!(?e, %filer, "failed to open directory"),
         }
+    }
+}
+
+fn get_filer() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "explorer"
+    } else if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    }
+}
+
+fn open_keycode_references() {
+    let filer = get_filer();
+
+    let ret = std::process::Command::new(filer)
+        .arg("https://developer.android.com/reference/android/view/KeyEvent#constants")
+        .spawn();
+
+    match ret {
+        Ok(_) => debug!("succeeded"),
+        Err(e) => warn!(?e, %filer, "failed to open keycode references"),
     }
 }
