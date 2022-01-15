@@ -214,10 +214,13 @@ impl Application for App {
                 view_settings: SettingsView,
                 widget_states: Default::default(),
             },
-            Command::perform(
-                iced_futures::futures::future::ok::<(), Infallible>(()),
-                |_| AppCommand::OnInit,
-            ),
+            Command::batch([
+                Command::perform(
+                    iced_futures::futures::future::ok::<(), Infallible>(()),
+                    |_| AppCommand::OnInit,
+                ),
+                retrieve_devices_command(),
+            ]),
         )
     }
 
@@ -322,9 +325,16 @@ impl Application for App {
             AppCommand::InvokeDevicesResult(devices) => {
                 info!("update InvokeDevicesResult");
                 self.adb_devices = devices;
-                if let Some(selected) = &self.adb_devices_selected {
-                    if !self.adb_devices.iter().any(|data| data == selected) {
-                        self.adb_devices_selected = None;
+                match &self.adb_devices_selected {
+                    Some(selected) => {
+                        if !self.adb_devices.iter().any(|data| data == selected) {
+                            self.adb_devices_selected = None;
+                        }
+                    }
+                    None => {
+                        if let Some(data) = self.adb_devices.first() {
+                            self.adb_devices_selected = Some(data.clone())
+                        }
                     }
                 }
 
@@ -350,9 +360,7 @@ impl Application for App {
                 }
             }
             AppCommand::OnAdbDevicesReloadClicked => {
-                return Command::perform(invoke_retrieve_devices(), |data| {
-                    AppCommand::InvokeDevicesResult(data)
-                });
+                return retrieve_devices_command();
             }
             AppCommand::OnInit => return self.load_key_map_command(),
             AppCommand::OnNewPrefs(prefs) => {
@@ -585,14 +593,19 @@ impl App {
     }
 }
 
-async fn invoke_retrieve_devices() -> Vec<Arc<AndroidDevice>> {
-    match retrieve_devices().await {
-        Ok(data) => data.into_iter().map(Arc::new).collect(),
-        Err(e) => {
-            warn!(?e, "failed to retrieve devices");
-            vec![]
-        }
-    }
+fn retrieve_devices_command() -> Command<AppCommand> {
+    Command::perform(
+        async {
+            match retrieve_devices().await {
+                Ok(data) => data.into_iter().map(Arc::new).collect(),
+                Err(e) => {
+                    warn!(?e, "failed to retrieve devices");
+                    vec![]
+                }
+            }
+        },
+        AppCommand::InvokeDevicesResult,
+    )
 }
 
 async fn retrieve_devices() -> Fallible<Vec<AndroidDevice>> {
