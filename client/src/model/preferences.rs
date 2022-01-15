@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Default)]
 pub struct Preferences {
     pub key_map: KeyMap,
 }

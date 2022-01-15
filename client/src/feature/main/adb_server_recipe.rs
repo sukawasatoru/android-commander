@@ -152,7 +152,7 @@ where
                                 }
                             },
                             Err(e) => {
-                                warn!("{:?}", e);
+                                warn!(?e);
                                 Some((YieldValue::Error, StreamState::Finish))
                             }
                         }
@@ -164,7 +164,7 @@ where
                             }
 
                             let data = rx.borrow();
-                            debug!("send data: {}", data.as_str());
+                            debug!(?data, "send data");
 
                             // for ignore init value.
                             if data.is_empty() {
@@ -173,7 +173,7 @@ where
 
                             let ret = writeln!(child.stdin.as_mut().unwrap(), "{}", data.as_str());
                             if let Err(e) = ret {
-                                warn!("{:?}", e);
+                                warn!(?e);
                                 child.kill().ok();
                                 child.wait().ok();
                                 return Some((YieldValue::Error, StreamState::Disconnecting));
