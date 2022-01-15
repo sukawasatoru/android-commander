@@ -197,6 +197,7 @@ impl Application for App {
 
     fn new(flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let (adb_server_tx, adb_server_rx) = tokio::sync::watch::channel("".into());
+        let config_file_path = flags.config_dir.join("preferences.toml");
         (
             Self {
                 active_view: ActiveView::Main,
@@ -206,12 +207,12 @@ impl Application for App {
                 adb_server_rx,
                 adb_server_tx,
                 app_module: AppModuleImpl::new(PreferencesRepositoryImpl::new(
-                    flags.config_dir.join("preferences.toml"),
+                    config_file_path.to_owned(),
                 )),
                 // app_module: MockAppModule::new(),
                 prefs: Default::default(),
                 view_main: MainView,
-                view_settings: SettingsView,
+                view_settings: SettingsView::new(config_file_path),
                 widget_states: Default::default(),
             },
             Command::batch([
@@ -386,10 +387,10 @@ impl Application for App {
                     warn!("failed to send the sendevent: {:?}", e);
                 }
             }
-            AppCommand::SettingsViewCommand(_) => {
+            AppCommand::SettingsViewCommand(data) => {
                 return self
                     .view_settings
-                    .update()
+                    .update(data)
                     .map(AppCommand::SettingsViewCommand);
             }
         }
