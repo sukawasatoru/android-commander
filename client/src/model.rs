@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+pub mod preferences;
+pub mod send_event_key;
+
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Eq, PartialEq)]

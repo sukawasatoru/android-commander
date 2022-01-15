@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-pub mod adb_server_recipe;
-pub mod data;
-pub mod feature;
-pub mod model;
-pub mod prelude;
+pub struct MainView;
+
+impl MainView {
+    pub fn view_size() -> (u32, u32) {
+        (270, 320)
+    }
+}

@@ -14,8 +14,5 @@
  * limitations under the License.
  */
 
-pub mod adb_server_recipe;
-pub mod data;
-pub mod feature;
-pub mod model;
-pub mod prelude;
+pub mod main;
+pub mod settings;

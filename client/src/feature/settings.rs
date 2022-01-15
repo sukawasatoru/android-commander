@@ -14,8 +14,30 @@
  * limitations under the License.
  */
 
-pub mod adb_server_recipe;
-pub mod data;
-pub mod feature;
-pub mod model;
-pub mod prelude;
+use iced::widget::{Column, Row};
+use iced::{Command, Element, Text};
+
+pub struct SettingsView;
+
+#[derive(Clone, Debug)]
+pub enum SettingsViewCommand {
+    A,
+    B,
+}
+
+impl SettingsView {
+    pub fn update(&mut self) -> Command<SettingsViewCommand> {
+        // TODO:
+        Command::none()
+    }
+
+    pub fn view(&mut self) -> Element<'_, SettingsViewCommand> {
+        Column::new()
+            .push(Row::new().push(Text::new("Hello!")))
+            .into()
+    }
+
+    pub fn view_size(&self) -> (u32, u32) {
+        (270, 200)
+    }
+}

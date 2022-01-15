@@ -15,79 +15,66 @@
  */
 
 use android_commander::adb_server_recipe::{AdbServerRecipe, AdbServerRecipeEvent};
+use android_commander::data::key_map_repository::{
+    MockPreferencesRepository, PreferencesRepository, PreferencesRepositoryImpl,
+};
 use android_commander::data::resource::Resource;
+use android_commander::feature::main::MainView;
+use android_commander::feature::settings::{SettingsView, SettingsViewCommand};
+use android_commander::model::preferences::{KeyMap, Preferences};
+use android_commander::model::send_event_key::SendEventKey;
 use android_commander::model::AndroidDevice;
 use android_commander::prelude::*;
-use anyhow::Context;
 use iced::keyboard::{Event as KeyboardEvent, KeyCode};
-use iced::window::Settings as WindowSettings;
+use iced::svg::Handle as SvgHandle;
+use iced::window::{resize, Settings as WindowSettings};
 use iced::{
-    button, executor, pick_list, Application, Button, Checkbox, Clipboard, Column, Command,
-    Element, Length, PickList, Row, Settings, Space, Subscription, Svg, Text,
+    button, executor, pick_list, Application, Button, Checkbox, Column, Command, Element, Length,
+    PickList, Row, Settings, Space, Subscription, Svg, Text,
 };
 use iced_native::subscription::events as native_events;
-use iced_native::widget::svg::Handle;
 use iced_native::Event as NativeEvent;
-use std::hash::Hash;
+use std::convert::Infallible;
 use std::io::BufRead;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{debug, info, warn};
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-enum SendEventKey {
-    DpadUp,
-    DpadDown,
-    DpadLeft,
-    DpadRight,
-    Enter,
-    Back,
-    Home,
-}
-
-impl TryFrom<KeyCode> for SendEventKey {
-    type Error = ();
-
-    fn try_from(value: KeyCode) -> Result<Self, Self::Error> {
-        use KeyCode::*;
-
-        match value {
-            J => Ok(Self::DpadDown),
-            K => Ok(Self::DpadUp),
-            H => Ok(Self::DpadLeft),
-            L => Ok(Self::DpadRight),
-            T => Ok(Self::Home),
-            Enter => Ok(Self::Enter),
-            Backspace => Ok(Self::Back),
-            _ => Err(()),
-        }
+fn create_send_event_key(key: KeyCode) -> Option<SendEventKey> {
+    match key {
+        KeyCode::J => Some(SendEventKey::DpadDown),
+        KeyCode::K => Some(SendEventKey::DpadUp),
+        KeyCode::H => Some(SendEventKey::DpadLeft),
+        KeyCode::L => Some(SendEventKey::DpadRight),
+        KeyCode::T => Some(SendEventKey::Home),
+        KeyCode::Enter => Some(SendEventKey::Ok),
+        KeyCode::Backspace => Some(SendEventKey::Back),
+        _ => None,
     }
 }
 
-impl SendEventKey {
-    fn get_android_key_name(&self) -> &'static str {
-        match self {
-            SendEventKey::DpadUp => "KEYCODE_DPAD_UP",
-            SendEventKey::DpadDown => "KEYCODE_DPAD_DOWN",
-            SendEventKey::DpadLeft => "KEYCODE_DPAD_LEFT",
-            SendEventKey::DpadRight => "KEYCODE_DPAD_RIGHT",
-            SendEventKey::Enter => "KEYCODE_ENTER",
-            SendEventKey::Back => "KEYCODE_BACK",
-            SendEventKey::Home => "KEYCODE_HOME",
-        }
+fn get_key<'a>(key_map: &'a KeyMap, key: &SendEventKey) -> &'a str {
+    match key {
+        SendEventKey::DpadUp => &key_map.dpad_up,
+        SendEventKey::DpadDown => &key_map.dpad_down,
+        SendEventKey::DpadLeft => &key_map.dpad_left,
+        SendEventKey::DpadRight => &key_map.dpad_right,
+        SendEventKey::Ok => &key_map.dpad_ok,
+        SendEventKey::Back => &key_map.back,
+        SendEventKey::Home => &key_map.home,
     }
 }
 
-fn create_pressed_key_command(key: &SendEventKey) -> String {
-    format!("down {}", key.get_android_key_name())
+fn create_pressed_key_command(key_map: &KeyMap, key: &SendEventKey) -> String {
+    format!("down {}", get_key(key_map, key))
 }
 
-fn create_release_key_command(key: &SendEventKey) -> String {
-    format!("up {}", key.get_android_key_name())
+fn create_release_key_command(key_map: &KeyMap, key: &SendEventKey) -> String {
+    format!("up {}", get_key(key_map, key))
 }
 
-fn create_click_key_command(key: &SendEventKey) -> String {
-    let code = key.get_android_key_name();
-    format!("down {code}\nup {code}", code = code)
+fn create_click_key_command(key_map: &KeyMap, key: &SendEventKey) -> String {
+    format!("down {code}\nup {code}", code = get_key(key_map, key))
 }
 
 enum AdbConnectivity {
@@ -96,19 +83,31 @@ enum AdbConnectivity {
     Disconnected,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+enum ActiveView {
+    Main,
+    Settings,
+}
+
 #[derive(Clone, Debug)]
 enum AppCommand {
+    ActiveView(ActiveView),
     AdbDevicesSelected(Arc<AndroidDevice>),
     AdbServerRecipeResult(AdbServerRecipeEvent),
     Event(NativeEvent),
     InvokeDevicesResult(Vec<Arc<AndroidDevice>>),
     OnAdbConnectClicked,
     OnAdbDevicesReloadClicked,
+    OnInit,
+    OnNewPrefs(Option<Preferences>),
     RequestSendEvent(SendEventKey),
+    SettingsViewCommand(SettingsViewCommand),
 }
 
 #[derive(Debug, Default)]
 struct WidgetStates {
+    active_view_main_button: button::State,
+    active_view_settings_button: button::State,
     adb_devices_reload_button: button::State,
     adb_devices_state: pick_list::State<Arc<AndroidDevice>>,
     button_up: button::State,
@@ -120,32 +119,105 @@ struct WidgetStates {
     button_home: button::State,
 }
 
+pub trait AppModule {
+    type PrefsRepo: PreferencesRepository;
+
+    fn prefs_repo(&self) -> Arc<Self::PrefsRepo>;
+}
+
+pub struct AppModuleImpl {
+    prefs_repo: Arc<PreferencesRepositoryImpl>,
+}
+
+impl AppModuleImpl {
+    #[allow(dead_code)]
+    fn new(prefs_repo: PreferencesRepositoryImpl) -> Self {
+        Self {
+            prefs_repo: Arc::new(prefs_repo),
+        }
+    }
+}
+
+impl AppModule for AppModuleImpl {
+    type PrefsRepo = PreferencesRepositoryImpl;
+
+    fn prefs_repo(&self) -> Arc<Self::PrefsRepo> {
+        self.prefs_repo.clone()
+    }
+}
+
+pub struct MockAppModule {
+    prefs_repo: Arc<MockPreferencesRepository>,
+}
+
+impl MockAppModule {
+    #[allow(dead_code)]
+    fn new() -> Self {
+        Self {
+            prefs_repo: Arc::new(MockPreferencesRepository),
+        }
+    }
+}
+
+impl AppModule for MockAppModule {
+    type PrefsRepo = MockPreferencesRepository;
+
+    fn prefs_repo(&self) -> Arc<Self::PrefsRepo> {
+        self.prefs_repo.clone()
+    }
+}
+
+#[derive(Default)]
+struct AppFlags {
+    config_dir: PathBuf,
+}
+
 struct App {
+    active_view: ActiveView,
     adb_connectivity: AdbConnectivity,
     adb_devices: Vec<Arc<AndroidDevice>>,
     adb_devices_selected: Option<Arc<AndroidDevice>>,
     adb_server_rx: tokio::sync::watch::Receiver<String>,
     adb_server_tx: tokio::sync::watch::Sender<String>,
+    app_module: AppModuleImpl,
+    // app_module: MockAppModule,
+    prefs: Preferences,
+
+    #[allow(dead_code)]
+    view_main: MainView,
+
+    view_settings: SettingsView,
     widget_states: WidgetStates,
 }
 
 impl Application for App {
     type Executor = executor::Default;
     type Message = AppCommand;
-    type Flags = ();
+    type Flags = AppFlags;
 
-    fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
+    fn new(flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let (adb_server_tx, adb_server_rx) = tokio::sync::watch::channel("".into());
         (
             Self {
+                active_view: ActiveView::Main,
                 adb_connectivity: AdbConnectivity::Disconnected,
                 adb_devices: vec![],
                 adb_devices_selected: None,
                 adb_server_rx,
                 adb_server_tx,
+                app_module: AppModuleImpl::new(PreferencesRepositoryImpl::new(
+                    flags.config_dir.join("preferences.toml"),
+                )),
+                // app_module: MockAppModule::new(),
+                prefs: Default::default(),
+                view_main: MainView,
+                view_settings: SettingsView,
                 widget_states: Default::default(),
             },
-            Command::none(),
+            Command::perform(
+                iced_futures::futures::future::ok::<(), Infallible>(()),
+                |_| AppCommand::OnInit,
+            ),
         )
     }
 
@@ -153,19 +225,31 @@ impl Application for App {
         "Android Commander".into()
     }
 
-    fn update(
-        &mut self,
-        message: Self::Message,
-        _clipboard: &mut Clipboard,
-    ) -> Command<Self::Message> {
-        use AppCommand::*;
-
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
-            AdbDevicesSelected(data) => {
+            AppCommand::ActiveView(data) => {
+                info!(?data, "onActiveView");
+                self.active_view = data;
+
+                let (w, h) = match self.active_view {
+                    ActiveView::Main => MainView::view_size(),
+                    ActiveView::Settings => self.view_settings.view_size(),
+                };
+
+                let mut commands = vec![resize(w, h)];
+
+                match self.active_view {
+                    ActiveView::Main => commands.push(self.load_key_map_command()),
+                    ActiveView::Settings => (),
+                };
+
+                return Command::batch(commands);
+            }
+            AppCommand::AdbDevicesSelected(data) => {
                 info!(%data, "device selected");
                 self.adb_devices_selected = Some(data);
             }
-            AdbServerRecipeResult(data) => match data {
+            AppCommand::AdbServerRecipeResult(data) => match data {
                 AdbServerRecipeEvent::Connected => {
                     info!("adb connected");
                     self.adb_connectivity = AdbConnectivity::Connected;
@@ -179,7 +263,11 @@ impl Application for App {
                     self.adb_server_tx.send("".into()).ok();
                 }
             },
-            Event(data) => {
+            AppCommand::Event(data) => {
+                if self.active_view != ActiveView::Main {
+                    return Command::none();
+                }
+
                 match self.adb_connectivity {
                     AdbConnectivity::Connected => (),
                     AdbConnectivity::Connecting | AdbConnectivity::Disconnected => {
@@ -193,14 +281,16 @@ impl Application for App {
                         KeyboardEvent::KeyPressed { key_code, .. } => {
                             debug!("update KeyPressed: {:?}", key_code);
 
-                            let send_event_key = match SendEventKey::try_from(key_code) {
-                                Ok(data) => data,
-                                Err(_) => return Command::none(),
+                            let send_event_key = match create_send_event_key(key_code) {
+                                Some(data) => data,
+                                None => return Command::none(),
                             };
 
-                            let ret = self
-                                .adb_server_tx
-                                .send(create_pressed_key_command(&send_event_key));
+                            let ret = self.adb_server_tx.send(create_pressed_key_command(
+                                &self.prefs.key_map,
+                                &send_event_key,
+                            ));
+
                             if let Err(e) = ret {
                                 warn!("failed to send the sendevent: {:?}", e);
                             }
@@ -208,14 +298,16 @@ impl Application for App {
                         KeyboardEvent::KeyReleased { key_code, .. } => {
                             debug!("update KeyReleased: {:?}", key_code);
 
-                            let send_event_key = match SendEventKey::try_from(key_code) {
-                                Ok(data) => data,
-                                Err(_) => return Command::none(),
+                            let send_event_key = match create_send_event_key(key_code) {
+                                Some(data) => data,
+                                None => return Command::none(),
                             };
 
-                            let ret = self
-                                .adb_server_tx
-                                .send(create_release_key_command(&send_event_key));
+                            let ret = self.adb_server_tx.send(create_release_key_command(
+                                &self.prefs.key_map,
+                                &send_event_key,
+                            ));
+
                             if let Err(e) = ret {
                                 warn!("failed to send the sendevent: {:?}", e);
                             }
@@ -227,7 +319,7 @@ impl Application for App {
                     _ => (),
                 }
             }
-            InvokeDevicesResult(devices) => {
+            AppCommand::InvokeDevicesResult(devices) => {
                 info!("update InvokeDevicesResult");
                 self.adb_devices = devices;
                 if let Some(selected) = &self.adb_devices_selected {
@@ -238,7 +330,7 @@ impl Application for App {
 
                 return Command::none();
             }
-            OnAdbConnectClicked => {
+            AppCommand::OnAdbConnectClicked => {
                 if self.adb_devices_selected.is_none() {
                     info!("need to select device");
                     return Command::none();
@@ -257,12 +349,18 @@ impl Application for App {
                     }
                 }
             }
-            OnAdbDevicesReloadClicked => {
+            AppCommand::OnAdbDevicesReloadClicked => {
                 return Command::perform(invoke_retrieve_devices(), |data| {
                     AppCommand::InvokeDevicesResult(data)
                 });
             }
-            RequestSendEvent(data) => {
+            AppCommand::OnInit => return self.load_key_map_command(),
+            AppCommand::OnNewPrefs(prefs) => {
+                if let Some(data) = prefs {
+                    self.prefs = data;
+                }
+            }
+            AppCommand::RequestSendEvent(data) => {
                 info!("update RequestSendEvent: {:?}", data);
                 match self.adb_connectivity {
                     AdbConnectivity::Connected => (),
@@ -272,10 +370,19 @@ impl Application for App {
                     }
                 }
 
-                let ret = self.adb_server_tx.send(create_click_key_command(&data));
+                let ret = self
+                    .adb_server_tx
+                    .send(create_click_key_command(&self.prefs.key_map, &data));
+
                 if let Err(e) = ret {
                     warn!("failed to send the sendevent: {:?}", e);
                 }
+            }
+            AppCommand::SettingsViewCommand(_) => {
+                return self
+                    .view_settings
+                    .update()
+                    .map(AppCommand::SettingsViewCommand);
             }
         }
 
@@ -310,109 +417,171 @@ impl Application for App {
         let button_width = Length::Units(90);
         let button_height = Length::Units(30);
 
-        Column::new()
+        let mut view = Column::new()
             .push(
                 Row::new()
                     .push(
                         Button::new(
-                            &mut self.widget_states.adb_devices_reload_button,
-                            Svg::new(Handle::from_memory(
-                                Resource::get("refresh_black_24dp.svg")
-                                    .context("refresh_black_24dp.svg")
-                                    .unwrap()
-                                    .data,
-                            )),
+                            &mut self.widget_states.active_view_main_button,
+                            Text::new("Main"),
                         )
-                        .on_press(AppCommand::OnAdbDevicesReloadClicked),
+                        .width(button_width)
+                        .height(button_height)
+                        .on_press(AppCommand::ActiveView(ActiveView::Main)),
                     )
-                    .push(PickList::new(
-                        &mut self.widget_states.adb_devices_state,
-                        &self.adb_devices,
-                        self.adb_devices_selected.clone(),
-                        AppCommand::AdbDevicesSelected,
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.active_view_settings_button,
+                            Text::new("Settings"),
+                        )
+                        .width(button_width)
+                        .height(button_height)
+                        .on_press(AppCommand::ActiveView(ActiveView::Settings)),
+                    ),
+            )
+            .push(Space::new(Length::Shrink, Length::Units(16)));
+
+        view = match self.active_view {
+            ActiveView::Main => {
+                view.push(Text::new("ADB:"))
+                    .push(
+                        Row::new()
+                            .push(
+                                Button::new(
+                                    &mut self.widget_states.adb_devices_reload_button,
+                                    Svg::new(SvgHandle::from_memory(
+                                        Resource::get("refresh_black_24dp.svg")
+                                            .context("refresh_black_24dp.svg")
+                                            .unwrap()
+                                            .data,
+                                    )),
+                                )
+                                .on_press(AppCommand::OnAdbDevicesReloadClicked),
+                            )
+                            .push(PickList::new(
+                                &mut self.widget_states.adb_devices_state,
+                                &self.adb_devices,
+                                self.adb_devices_selected.clone(),
+                                AppCommand::AdbDevicesSelected,
+                            ))
+                            .height(button_height),
+                    )
+                    .push(Checkbox::new(
+                        match self.adb_connectivity {
+                            AdbConnectivity::Connecting | AdbConnectivity::Disconnected => false,
+                            AdbConnectivity::Connected => true,
+                        },
+                        "connect",
+                        |_| AppCommand::OnAdbConnectClicked,
                     ))
-                    .height(button_height),
-            )
-            .push(Checkbox::new(
-                match self.adb_connectivity {
-                    AdbConnectivity::Connecting | AdbConnectivity::Disconnected => false,
-                    AdbConnectivity::Connected => true,
-                },
-                "login",
-                |_| AppCommand::OnAdbConnectClicked,
-            ))
-            .push(Text::new(match self.adb_connectivity {
-                AdbConnectivity::Connecting => "adb: connecting",
-                AdbConnectivity::Connected => "adb: connected",
-                AdbConnectivity::Disconnected => "adb: disconnected",
-            }))
-            // TODO: support disabled style.
-            // TODO: support long press.
-            .push(
-                Row::new()
-                    .push(Space::new(button_width, button_height))
+                    .push(Text::new(match self.adb_connectivity {
+                        AdbConnectivity::Connecting => "status: connecting",
+                        AdbConnectivity::Connected => "status: connected",
+                        AdbConnectivity::Disconnected => "status: disconnected",
+                    }))
+                    .push(Space::new(Length::Shrink, Length::Units(16)))
+                    // TODO: support disabled style.
+                    // TODO: support long press.
                     .push(
-                        Button::new(&mut self.widget_states.button_up, Text::new("Up (k)"))
-                            .width(button_width)
-                            .height(button_height)
-                            .on_press(AppCommand::RequestSendEvent(SendEventKey::DpadUp)),
-                    ),
-            )
-            // TODO: support disabled style.
-            // TODO: support long press.
-            .push(
-                Row::new()
+                        Row::new()
+                            .push(Space::new(button_width, button_height))
+                            .push(
+                                Button::new(&mut self.widget_states.button_up, Text::new("Up (k)"))
+                                    .width(button_width)
+                                    .height(button_height)
+                                    .on_press(AppCommand::RequestSendEvent(SendEventKey::DpadUp)),
+                            ),
+                    )
+                    // TODO: support disabled style.
+                    // TODO: support long press.
                     .push(
-                        // TODO: support disabled style.
-                        // TODO: support long press.
-                        Button::new(&mut self.widget_states.button_left, Text::new("Left (h)"))
-                            .width(button_width)
-                            .height(button_height)
-                            .on_press(AppCommand::RequestSendEvent(SendEventKey::DpadLeft)),
+                        Row::new()
+                            .push(
+                                // TODO: support disabled style.
+                                // TODO: support long press.
+                                Button::new(
+                                    &mut self.widget_states.button_left,
+                                    Text::new("Left (h)"),
+                                )
+                                .width(button_width)
+                                .height(button_height)
+                                .on_press(AppCommand::RequestSendEvent(SendEventKey::DpadLeft)),
+                            )
+                            .push(
+                                // TODO: support disabled style.
+                                // TODO: support long press.
+                                Button::new(&mut self.widget_states.button_ok, Text::new("Enter"))
+                                    .width(button_width)
+                                    .height(button_height)
+                                    .on_press(AppCommand::RequestSendEvent(SendEventKey::Ok)),
+                            )
+                            .push(
+                                // TODO: support disabled style.
+                                // TODO: support long press.
+                                Button::new(
+                                    &mut self.widget_states.button_right,
+                                    Text::new("Right (l)"),
+                                )
+                                .width(button_width)
+                                .height(button_height)
+                                .on_press(AppCommand::RequestSendEvent(SendEventKey::DpadRight)),
+                            ),
                     )
                     .push(
-                        // TODO: support disabled style.
-                        // TODO: support long press.
-                        Button::new(&mut self.widget_states.button_ok, Text::new("Enter"))
-                            .width(button_width)
-                            .height(button_height)
-                            .on_press(AppCommand::RequestSendEvent(SendEventKey::Enter)),
+                        Row::new()
+                            .push(Space::new(button_width, button_height))
+                            .push(
+                                Button::new(
+                                    &mut self.widget_states.button_down,
+                                    Text::new("Down (j)"),
+                                )
+                                .width(button_width)
+                                .height(button_height)
+                                .on_press(AppCommand::RequestSendEvent(SendEventKey::DpadDown)),
+                            ),
                     )
                     .push(
-                        // TODO: support disabled style.
-                        // TODO: support long press.
-                        Button::new(&mut self.widget_states.button_right, Text::new("Right (l)"))
-                            .width(button_width)
-                            .height(button_height)
-                            .on_press(AppCommand::RequestSendEvent(SendEventKey::DpadRight)),
-                    ),
-            )
-            .push(
-                Row::new()
-                    .push(Space::new(button_width, button_height))
-                    .push(
-                        Button::new(&mut self.widget_states.button_down, Text::new("Down (j)"))
-                            .width(button_width)
-                            .height(button_height)
-                            .on_press(AppCommand::RequestSendEvent(SendEventKey::DpadDown)),
-                    ),
-            )
-            .push(
-                Row::new()
-                    .push(
-                        Button::new(&mut self.widget_states.button_back, Text::new("Back"))
-                            .width(button_width)
-                            .height(button_height)
-                            .on_press(AppCommand::RequestSendEvent(SendEventKey::Back)),
+                        Row::new()
+                            .push(
+                                Button::new(&mut self.widget_states.button_back, Text::new("Back"))
+                                    .width(button_width)
+                                    .height(button_height)
+                                    .on_press(AppCommand::RequestSendEvent(SendEventKey::Back)),
+                            )
+                            .push(
+                                Button::new(&mut self.widget_states.button_home, Text::new("Home"))
+                                    .width(button_width)
+                                    .height(button_height)
+                                    .on_press(AppCommand::RequestSendEvent(SendEventKey::Home)),
+                            ),
                     )
-                    .push(
-                        Button::new(&mut self.widget_states.button_home, Text::new("Home"))
-                            .width(button_width)
-                            .height(button_height)
-                            .on_press(AppCommand::RequestSendEvent(SendEventKey::Home)),
-                    ),
-            )
-            .into()
+            }
+            ActiveView::Settings => view.push(
+                self.view_settings
+                    .view()
+                    .map(Self::Message::SettingsViewCommand),
+            ),
+        };
+
+        view.into()
+    }
+}
+
+impl App {
+    fn load_key_map_command(&self) -> Command<AppCommand> {
+        let repo = self.app_module.prefs_repo();
+        Command::perform(
+            async move {
+                match repo.load().await {
+                    Ok(data) => Some(data),
+                    Err(e) => {
+                        warn!(?e, "failed to load key map");
+                        None
+                    }
+                }
+            },
+            AppCommand::OnNewPrefs,
+        )
     }
 }
 
@@ -456,7 +625,7 @@ async fn retrieve_devices() -> Fallible<Vec<AndroidDevice>> {
     Ok(devices)
 }
 
-fn main() -> ! {
+fn main() -> Fallible<()> {
     // TODO: disable log.
     #[cfg(target_os = "windows")]
     if false {
@@ -471,14 +640,20 @@ fn main() -> ! {
 
     info!("Hello");
 
+    let config_dir = directories::ProjectDirs::from("com", "sukawasatoru", "AndroidCommander")
+        .context("directories")?
+        .config_dir()
+        .to_path_buf();
+
     App::run(Settings {
         window: WindowSettings {
-            size: (270, 320),
+            size: MainView::view_size(),
             ..Default::default()
         },
+        flags: AppFlags { config_dir },
         ..Default::default()
-    })
-    .unwrap();
+    })?;
 
-    unreachable!()
+    info!("Bye");
+    Ok(())
 }

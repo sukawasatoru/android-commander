@@ -14,4 +14,4 @@
  * limitations under the License.
  */
 
-pub use anyhow::Result as Fallible;
+pub use anyhow::{Context as AnyhowContext, Result as Fallible};

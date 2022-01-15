@@ -6,17 +6,31 @@ edition = "2021"
 
 [dependencies]
 anyhow = "=1.0.52"
+async-trait = "=0.1.52"
+directories = "=4.0.1"
 dotenv = "=0.15.0"
-iced_futures = "*"
-iced_native = "*"
 rust-embed = "=6.3.0"
 tempfile = "=3.2.0"
 thiserror = "=1.0.30"
+toml = "=0.5.8"
 tracing = "=0.1.29"
 
 [dependencies.iced]
-version = "=0.3.0"
+git = "https://github.com/hecrj/iced.git"
+rev = "b7bc169120d3447ead238e974007027a5152d341"
 features = ["svg", "tokio"]
+
+[dependencies.iced_futures]
+git = "https://github.com/hecrj/iced.git"
+rev = "b7bc169120d3447ead238e974007027a5152d341"
+
+[dependencies.iced_native]
+git = "https://github.com/hecrj/iced.git"
+rev = "b7bc169120d3447ead238e974007027a5152d341"
+
+[dependencies.serde]
+version = "=1.0.132"
+features = ["derive"]
 
 [dependencies.tokio]
 version = "=1.15.0"

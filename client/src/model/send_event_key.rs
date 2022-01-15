@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
-pub mod adb_server_recipe;
-pub mod data;
-pub mod feature;
-pub mod model;
-pub mod prelude;
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum SendEventKey {
+    DpadUp,
+    DpadDown,
+    DpadLeft,
+    DpadRight,
+    Ok,
+    Back,
+    Home,
+}
