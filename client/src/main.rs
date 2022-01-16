@@ -19,6 +19,7 @@ use android_commander::data::key_map_repository::{
 };
 use android_commander::feature::main::{MainView, MainViewCommand};
 use android_commander::feature::settings::{SettingsView, SettingsViewCommand};
+use android_commander::model::app_command::AppCommand as CommonAppCommand;
 use android_commander::model::preferences::Preferences;
 use android_commander::prelude::*;
 use iced::window::{resize, Settings as WindowSettings};
@@ -29,6 +30,7 @@ use iced::{
 use std::convert::Infallible;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::sync::broadcast::{channel, Sender};
 use tracing::{info, warn};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -43,6 +45,7 @@ enum AppCommand {
     MainViewCommand(MainViewCommand),
     OnInit,
     OnNewPrefs(Option<Arc<Preferences>>),
+    OnPrefsFileUpdated,
     SettingsViewCommand(SettingsViewCommand),
 }
 
@@ -109,6 +112,7 @@ struct App {
     active_view: ActiveView,
     app_module: AppModuleImpl,
     // app_module: MockAppModule,
+    common_command_tx: Sender<CommonAppCommand>,
     view_main: MainView,
     view_settings: SettingsView,
     widget_states: WidgetStates,
@@ -122,6 +126,7 @@ impl Application for App {
     fn new(flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let config_file_path = flags.config_dir.join("preferences.toml");
         let prefs = Arc::new(Default::default());
+        let (tx, _) = channel(1);
         (
             Self {
                 active_view: ActiveView::Main,
@@ -129,8 +134,9 @@ impl Application for App {
                     config_file_path.to_owned(),
                 )),
                 // app_module: MockAppModule::new(),
+                common_command_tx: tx.clone(),
                 view_main: MainView::new(prefs),
-                view_settings: SettingsView::new(config_file_path),
+                view_settings: SettingsView::new(tx, config_file_path),
                 widget_states: Default::default(),
             },
             Command::batch([
@@ -158,14 +164,7 @@ impl Application for App {
                     ActiveView::Settings => self.view_settings.view_size(),
                 };
 
-                let mut commands = vec![resize(w, h)];
-
-                match self.active_view {
-                    ActiveView::Main => commands.push(self.load_prefs_command()),
-                    ActiveView::Settings => (),
-                };
-
-                Command::batch(commands)
+                resize(w, h)
             }
             AppCommand::MainViewCommand(command) => self
                 .view_main
@@ -176,6 +175,7 @@ impl Application for App {
                 .view_main
                 .update(MainViewCommand::OnNewPrefs(prefs))
                 .map(AppCommand::MainViewCommand),
+            AppCommand::OnPrefsFileUpdated => self.load_prefs_command(),
             AppCommand::SettingsViewCommand(data) => self
                 .view_settings
                 .update(data)
@@ -184,9 +184,17 @@ impl Application for App {
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {
-        self.view_main
-            .subscription()
-            .map(AppCommand::MainViewCommand)
+        Subscription::batch([
+            Subscription::from_recipe(main_recipe::CommonCommandReceiverRecipe::new(
+                self.common_command_tx.subscribe(),
+            ))
+            .map(|data: CommonAppCommand| match data {
+                CommonAppCommand::OnPrefsFileUpdated => AppCommand::OnPrefsFileUpdated,
+            }),
+            self.view_main
+                .subscription()
+                .map(AppCommand::MainViewCommand),
+        ])
     }
 
     fn view(&mut self) -> Element<'_, Self::Message> {
@@ -247,6 +255,54 @@ impl App {
             },
             AppCommand::OnNewPrefs,
         )
+    }
+}
+
+mod main_recipe {
+    use android_commander::model::app_command::AppCommand as CommonAppCommand;
+    use iced::futures::stream::unfold;
+    use iced_futures::subscription::Recipe;
+    use std::hash::Hash;
+    use tokio::sync::broadcast::Receiver;
+    use tracing::debug;
+
+    pub struct CommonCommandReceiverRecipe {
+        rx: Receiver<CommonAppCommand>,
+    }
+
+    impl CommonCommandReceiverRecipe {
+        pub fn new(rx: Receiver<CommonAppCommand>) -> Self {
+            Self { rx }
+        }
+    }
+
+    impl<Hasher, Event> Recipe<Hasher, Event> for CommonCommandReceiverRecipe
+    where
+        Hasher: std::hash::Hasher,
+    {
+        type Output = CommonAppCommand;
+
+        fn hash(&self, state: &mut Hasher) {
+            std::any::TypeId::of::<Self>().hash(state);
+        }
+
+        fn stream(
+            self: Box<Self>,
+            _input: iced_futures::BoxStream<Event>,
+        ) -> iced_futures::BoxStream<Self::Output> {
+            Box::pin(unfold(self.rx, |mut rx| async move {
+                match rx.recv().await {
+                    Ok(yield_value) => {
+                        debug!(?yield_value, "received common command");
+                        Some((yield_value, rx))
+                    }
+                    Err(_) => {
+                        debug!("finish");
+                        None
+                    }
+                }
+            }))
+        }
     }
 }
 

@@ -225,6 +225,8 @@ impl MainView {
                 }
             }
             MainViewCommand::OnNewPrefs(prefs) => {
+                info!("OnNewPreferences");
+
                 if let Some(data) = prefs {
                     self.prefs = data;
                 }

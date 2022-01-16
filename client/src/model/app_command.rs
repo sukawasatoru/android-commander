@@ -14,19 +14,7 @@
  * limitations under the License.
  */
 
-pub mod app_command;
-pub mod preferences;
-pub mod send_event_key;
-
-use std::fmt::{Display, Formatter};
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct AndroidDevice {
-    pub serial: String,
-}
-
-impl Display for AndroidDevice {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.serial)
-    }
+#[derive(Clone, Debug)]
+pub enum AppCommand {
+    OnPrefsFileUpdated,
 }

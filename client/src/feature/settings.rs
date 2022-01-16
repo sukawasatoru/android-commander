@@ -14,19 +14,23 @@
  * limitations under the License.
  */
 
+use crate::model::app_command::AppCommand;
 use iced::widget::{Column, Row};
 use iced::{button, Button, Command, Element, Text};
 use std::path::PathBuf;
+use tokio::sync::broadcast::Sender;
 use tracing::{debug, warn};
 
 pub struct SettingsView {
+    common_command_tx: Sender<AppCommand>,
     config_file_path: PathBuf,
     widget_state: WidgetState,
 }
 
 impl SettingsView {
-    pub fn new(config_file_path: PathBuf) -> Self {
+    pub fn new(common_command_tx: Sender<AppCommand>, config_file_path: PathBuf) -> Self {
         Self {
+            common_command_tx,
             config_file_path,
             widget_state: Default::default(),
         }
@@ -38,6 +42,7 @@ struct WidgetState {
     open_keycode_references_button: button::State,
     open_prefs_button: button::State,
     open_prefs_dir_button: button::State,
+    reload_prefs_button: button::State,
 }
 
 #[derive(Clone, Debug)]
@@ -45,6 +50,7 @@ pub enum SettingsViewCommand {
     OnOpenKeycodeReferencesButtonClicked,
     OnOpenPrefsButtonClicked,
     OnOpenPrefsDirButtonClicked,
+    OnReloadPrefsButtonClicked,
 }
 
 impl SettingsView {
@@ -53,6 +59,11 @@ impl SettingsView {
             SettingsViewCommand::OnOpenPrefsButtonClicked => self.open_prefs(),
             SettingsViewCommand::OnOpenPrefsDirButtonClicked => self.open_prefs_directory(),
             SettingsViewCommand::OnOpenKeycodeReferencesButtonClicked => open_keycode_references(),
+            SettingsViewCommand::OnReloadPrefsButtonClicked => {
+                self.common_command_tx
+                    .send(AppCommand::OnPrefsFileUpdated)
+                    .ok();
+            }
         }
 
         Command::none()
@@ -61,6 +72,15 @@ impl SettingsView {
     pub fn view(&mut self) -> Element<'_, SettingsViewCommand> {
         Column::new()
             .spacing(16)
+            .push(
+                Row::new().push(
+                    Button::new(
+                        &mut self.widget_state.reload_prefs_button,
+                        Text::new("Reload preferences"),
+                    )
+                    .on_press(SettingsViewCommand::OnReloadPrefsButtonClicked),
+                ),
+            )
             .push(
                 Row::new().push(
                     Button::new(
@@ -92,7 +112,7 @@ impl SettingsView {
     }
 
     pub fn view_size(&self) -> (u32, u32) {
-        (270, 200)
+        (270, 260)
     }
 
     fn open_prefs(&self) {
