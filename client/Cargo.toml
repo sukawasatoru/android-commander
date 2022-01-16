@@ -37,7 +37,7 @@ version = "=1.15.0"
 features = ["fs", "io-std", "io-util", "macros", "sync"]
 
 [dependencies.tracing-subscriber]
-version = "=0.3.5"
+version = "=0.3.6"
 features = ["env-filter"]
 
 [target.'cfg(windows)'.dependencies.winapi]
