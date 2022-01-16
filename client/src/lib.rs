@@ -16,5 +16,6 @@
 
 pub mod data;
 pub mod feature;
+pub mod function;
 pub mod model;
 pub mod prelude;

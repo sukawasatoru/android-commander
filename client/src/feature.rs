@@ -15,4 +15,5 @@
  */
 
 pub mod main;
+pub mod migrate;
 pub mod settings;

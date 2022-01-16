@@ -14,23 +14,4 @@
  * limitations under the License.
  */
 
-pub mod app_command;
-mod file_version;
-mod preferences;
-pub mod send_event_key;
-
-pub use file_version::FileVersion;
-pub use preferences::{KeyMap, Preferences};
-
-use std::fmt::{Display, Formatter};
-
-#[derive(Debug, Eq, PartialEq)]
-pub struct AndroidDevice {
-    pub serial: String,
-}
-
-impl Display for AndroidDevice {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.serial)
-    }
-}
+pub mod serde_functions;

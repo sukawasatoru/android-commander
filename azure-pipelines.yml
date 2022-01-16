@@ -23,5 +23,12 @@ jobs:
           grep -qe ^error stderr.log && grep -e ^error stderr.log | xargs -ILINE echo "##vso[task.logissue type=error]LINE" || true
           exit $CODE
         displayName: Clippy
+      - script: |
+          arch -arm64 make -C client test 2> >(tee stderr.log >&2)
+          CODE=$?
+          grep -qe ^warning stderr.log && grep -e ^warning stderr.log | xargs -ILINE echo "##vso[task.logissue type=warning]LINE" || true
+          grep -qe ^error stderr.log && grep -e ^error stderr.log | xargs -ILINE echo "##vso[task.logissue type=error]LINE" || true
+          exit $CODE
+        displayName: Test
       - publish: client/target/release/android-commander
         artifact: android-commander-osx

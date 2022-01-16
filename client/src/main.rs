@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-use android_commander::data::key_map_repository::{
+use android_commander::data::preferences_repository::{
     MockPreferencesRepository, PreferencesRepository, PreferencesRepositoryImpl,
 };
 use android_commander::feature::main::{MainView, MainViewCommand};
+use android_commander::feature::migrate::migrate;
 use android_commander::feature::settings::{SettingsView, SettingsViewCommand};
 use android_commander::model::app_command::AppCommand as CommonAppCommand;
-use android_commander::model::preferences::Preferences;
+use android_commander::model::Preferences;
 use android_commander::prelude::*;
 use iced::window::{resize, Settings as WindowSettings};
 use iced::{
@@ -325,6 +326,8 @@ fn main() -> Fallible<()> {
         .context("directories")?
         .config_dir()
         .to_path_buf();
+
+    migrate()?;
 
     App::run(Settings {
         window: WindowSettings {

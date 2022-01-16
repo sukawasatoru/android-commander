@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 sukawasatoru
+ * Copyright 2019, 2020, 2021 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,23 +14,19 @@
  * limitations under the License.
  */
 
-pub mod app_command;
-mod file_version;
-mod preferences;
-pub mod send_event_key;
+pub struct StrVisitor;
 
-pub use file_version::FileVersion;
-pub use preferences::{KeyMap, Preferences};
+impl<'de> serde::de::Visitor<'de> for StrVisitor {
+    type Value = &'de str;
 
-use std::fmt::{Display, Formatter};
+    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("a borrowed string")
+    }
 
-#[derive(Debug, Eq, PartialEq)]
-pub struct AndroidDevice {
-    pub serial: String,
-}
-
-impl Display for AndroidDevice {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.serial)
+    fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(v)
     }
 }

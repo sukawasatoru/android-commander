@@ -15,5 +15,5 @@
  */
 
 pub mod asset;
-pub mod key_map_repository;
+pub mod preferences_repository;
 pub mod resource;

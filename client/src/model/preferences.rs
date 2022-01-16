@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Eq, PartialEq)]
 pub struct Preferences {
     pub key_map: KeyMap,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct KeyMap {
     pub dpad_up: String,
     pub dpad_down: String,

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::model::preferences::{KeyMap, Preferences};
+use crate::model::{KeyMap, Preferences};
 use crate::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

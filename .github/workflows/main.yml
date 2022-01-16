@@ -34,6 +34,8 @@ jobs:
         run: make -C client
       - name: Clippy
         run: make -C client lint
+      - name: Test
+        run: make -C client test
       - uses: actions/upload-artifact@v2
         with:
           name: android-commander-win
@@ -55,6 +57,8 @@ jobs:
         run: make -C client
       - name: Clippy
         run: make -C client lint
+      - name: Test
+        run: make -C client test
       - uses: actions/upload-artifact@v2
         with:
           name: android-commander-linux

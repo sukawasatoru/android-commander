@@ -19,6 +19,10 @@ debug: ../server/app/build/outputs/android-commander-server
 lint: fmt ../server/app/build/outputs/android-commander-server
 	cargo clippy
 
+.PHONY: test
+test:../server/app/build/outputs/android-commander-server
+	cargo test
+
 .PHONY: clean
 clean:
 	cargo clean

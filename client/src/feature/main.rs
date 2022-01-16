@@ -18,9 +18,8 @@ mod adb_server_recipe;
 
 use crate::data::resource::Resource;
 use crate::feature::main::adb_server_recipe::{AdbServerRecipe, AdbServerRecipeEvent};
-use crate::model::preferences::{KeyMap, Preferences};
 use crate::model::send_event_key::SendEventKey;
-use crate::model::AndroidDevice;
+use crate::model::{AndroidDevice, KeyMap, Preferences};
 use crate::prelude::*;
 use iced::keyboard::{Event as KeyboardEvent, KeyCode};
 use iced::svg::Handle as SvgHandle;
