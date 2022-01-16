@@ -114,6 +114,10 @@ impl From<PrefsDto> for Preferences {
 
 #[derive(Deserialize, Eq, PartialEq, Serialize)]
 struct PrefsKeyMap {
+    color_red: String,
+    color_green: String,
+    color_blue: String,
+    color_yellow: String,
     dpad_up: String,
     dpad_down: String,
     dpad_left: String,
@@ -126,6 +130,10 @@ struct PrefsKeyMap {
 impl From<PrefsKeyMap> for KeyMap {
     fn from(value: PrefsKeyMap) -> Self {
         Self {
+            color_red: value.color_red,
+            color_green: value.color_green,
+            color_blue: value.color_blue,
+            color_yellow: value.color_yellow,
             dpad_up: value.dpad_up,
             dpad_down: value.dpad_down,
             dpad_left: value.dpad_left,
@@ -140,6 +148,10 @@ impl From<PrefsKeyMap> for KeyMap {
 impl From<KeyMap> for PrefsKeyMap {
     fn from(value: KeyMap) -> Self {
         Self {
+            color_red: value.color_red,
+            color_green: value.color_green,
+            color_blue: value.color_blue,
+            color_yellow: value.color_yellow,
             dpad_up: value.dpad_up,
             dpad_down: value.dpad_down,
             dpad_left: value.dpad_left,

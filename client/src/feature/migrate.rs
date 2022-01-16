@@ -15,10 +15,13 @@
  */
 
 mod migrate_0_1_0;
+mod migrate_0_1_1;
+mod migrate_functions;
 
 use crate::model::FileVersion;
 use crate::prelude::*;
 use migrate_0_1_0::migrate_0_1_0;
+use migrate_0_1_1::migrate_0_1_1;
 use std::fs::File;
 use std::io::{prelude::*, BufReader, BufWriter};
 use std::path::Path;
@@ -32,7 +35,13 @@ pub fn migrate() -> Fallible<()> {
     let project_dirs = directories::ProjectDirs::from("com", "sukawasatoru", "AndroidCommander")
         .context("directories")?;
 
-    let functions = vec![("0.1.0", || migrate_0_1_0(project_dirs.config_dir()))];
+    let prefs_dir = project_dirs.config_dir();
+
+    #[allow(clippy::type_complexity)]
+    let functions: Vec<(&str, Box<dyn Fn() -> Fallible<()>>)> = vec![
+        ("0.1.0", Box::new(|| migrate_0_1_0(prefs_dir))),
+        ("0.1.1", Box::new(|| migrate_0_1_1(prefs_dir))),
+    ];
 
     for (version_str, migrate) in functions {
         let migrate_version = version_str.parse::<FileVersion>()?;
@@ -88,16 +97,14 @@ fn set_latest_version(preferences_dir: &Path, new_version: FileVersion) -> Falli
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::preferences_repository::{PreferencesRepository, PreferencesRepositoryImpl};
-    use crate::model::{KeyMap, Preferences};
     use tempfile::tempdir;
     use tracing::info;
 
     #[tokio::test]
     async fn test_set_version() {
-        tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::TRACE)
-            .init();
+        // tracing_subscriber::fmt()
+        //     .with_max_level(tracing::Level::TRACE)
+        //     .init();
 
         let old_preferences = r#"
 version = "0.0.1"
@@ -147,24 +154,5 @@ home = "KEYCODE_g"
                 .unwrap(),
             "0.1.0"
         );
-
-        let expect_preferences = Preferences {
-            key_map: KeyMap {
-                dpad_up: "KEYCODE_a".to_string(),
-                dpad_down: "KEYCODE_b".to_string(),
-                dpad_left: "KEYCODE_c".to_string(),
-                dpad_right: "KEYCODE_d".to_string(),
-                dpad_ok: "KEYCODE_e".to_string(),
-                back: "KEYCODE_f".to_string(),
-                home: "KEYCODE_g".to_string(),
-            },
-        };
-
-        let actual_prefs =
-            PreferencesRepositoryImpl::new(prefs_dir.join("preferences.toml").to_path_buf())
-                .load()
-                .await
-                .unwrap();
-        assert_eq!(expect_preferences, actual_prefs);
     }
 }

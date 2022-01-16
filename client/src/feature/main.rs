@@ -15,20 +15,21 @@
  */
 
 mod adb_server_recipe;
+mod color_key_style_sheet;
 
 use crate::data::resource::Resource;
 use crate::feature::main::adb_server_recipe::{AdbServerRecipe, AdbServerRecipeEvent};
+use crate::feature::main::color_key_style_sheet::ColorKeyStyleSheet;
 use crate::model::send_event_key::SendEventKey;
 use crate::model::{AndroidDevice, KeyMap, Preferences};
 use crate::prelude::*;
 use iced::keyboard::{Event as KeyboardEvent, KeyCode};
 use iced::svg::Handle as SvgHandle;
 use iced::{
-    button, pick_list, Button, Checkbox, Column, Command, Element, Length, PickList, Row,
-    Subscription, Svg, Text,
+    button, pick_list, Button, Checkbox, Color, Column, Command, Element, Length, PickList, Row,
+    Space, Subscription, Svg, Text,
 };
 use iced_native::subscription::events as native_events;
-use iced_native::widget::Space;
 use iced_native::Event as NativeEvent;
 use std::io::BufRead;
 use std::sync::Arc;
@@ -75,6 +76,10 @@ struct WidgetStates {
     button_ok: button::State,
     button_back: button::State,
     button_home: button::State,
+    color_red_button: button::State,
+    color_green_button: button::State,
+    color_yellow_button: button::State,
+    color_blue_button: button::State,
 }
 
 impl MainView {
@@ -286,6 +291,7 @@ impl MainView {
                     ))
                     .height(button_height),
             )
+            .push(Space::new(Length::Shrink, Length::Units(4)))
             .push(Checkbox::new(
                 match self.adb_connectivity {
                     AdbConnectivity::Connecting | AdbConnectivity::Disconnected => false,
@@ -300,11 +306,55 @@ impl MainView {
                 AdbConnectivity::Disconnected => "status: disconnected",
             }))
             .push(Space::new(Length::Shrink, Length::Units(16)))
-            // TODO: support disabled style.
-            // TODO: support long press.
             .push(
                 Row::new()
-                    .push(Space::new(button_width, button_height))
+                    .spacing(4)
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.color_red_button,
+                            Space::new(Length::Fill, Length::Fill),
+                        )
+                        .width(Length::Units(70))
+                        .height(button_height)
+                        .style(ColorKeyStyleSheet(Color::new(1f32, 0f32, 0f32, 1f32)))
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorRed)),
+                    )
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.color_green_button,
+                            Space::new(Length::Fill, Length::Fill),
+                        )
+                        .width(Length::Units(70))
+                        .height(button_height)
+                        .style(ColorKeyStyleSheet(Color::new(0f32, 1f32, 0f32, 1f32)))
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorGreen)),
+                    )
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.color_blue_button,
+                            Space::new(Length::Fill, Length::Fill),
+                        )
+                        .width(Length::Units(70))
+                        .height(button_height)
+                        .style(ColorKeyStyleSheet(Color::new(0f32, 0f32, 1f32, 1f32)))
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorBlue)),
+                    )
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.color_yellow_button,
+                            Space::new(Length::Fill, Length::Fill),
+                        )
+                        .width(Length::Units(70))
+                        .height(button_height)
+                        .style(ColorKeyStyleSheet(Color::new(1f32, 1f32, 0f32, 1f32)))
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorYellow)),
+                    ),
+            )
+            .push(Space::new(Length::Shrink, Length::Units(8)))
+            .push(
+                Row::new()
+                    .spacing(4)
+                    .push(Space::new((90 + 8).into(), Length::Shrink))
                     .push(
                         Button::new(&mut self.widget_states.button_up, Text::new("Up (k)"))
                             .width(button_width)
@@ -312,47 +362,48 @@ impl MainView {
                             .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadUp)),
                     ),
             )
-            // TODO: support disabled style.
-            // TODO: support long press.
+            .push(Space::new(Length::Shrink, Length::Units(4)))
             .push(
                 Row::new()
+                    .spacing(4)
+                    .push(Space::new(4.into(), Length::Shrink))
                     .push(
-                        // TODO: support disabled style.
-                        // TODO: support long press.
                         Button::new(&mut self.widget_states.button_left, Text::new("Left (h)"))
                             .width(button_width)
                             .height(button_height)
                             .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadLeft)),
                     )
                     .push(
-                        // TODO: support disabled style.
-                        // TODO: support long press.
                         Button::new(&mut self.widget_states.button_ok, Text::new("OK"))
                             .width(button_width)
                             .height(button_height)
                             .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Ok)),
                     )
                     .push(
-                        // TODO: support disabled style.
-                        // TODO: support long press.
                         Button::new(&mut self.widget_states.button_right, Text::new("Right (l)"))
                             .width(button_width)
                             .height(button_height)
                             .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadRight)),
                     ),
             )
+            .push(Space::new(Length::Shrink, Length::Units(4)))
             .push(
                 Row::new()
-                    .push(Space::new(button_width, button_height))
+                    .spacing(4)
+                    .push(Space::new((90 + 8).into(), Length::Shrink))
                     .push(
                         Button::new(&mut self.widget_states.button_down, Text::new("Down (j)"))
                             .width(button_width)
                             .height(button_height)
                             .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadDown)),
-                    ),
+                    )
+                    .push(Space::new(button_width, button_height)),
             )
+            .push(Space::new(Length::Shrink, Length::Units(8)))
             .push(
                 Row::new()
+                    .spacing(4)
+                    .push(Space::new(4.into(), Length::Shrink))
                     .push(
                         Button::new(&mut self.widget_states.button_back, Text::new("Back"))
                             .width(button_width)
@@ -370,7 +421,7 @@ impl MainView {
     }
 
     pub fn view_size() -> (u32, u32) {
-        (270, 320)
+        (300, 360)
     }
 }
 
@@ -389,6 +440,10 @@ fn create_send_event_key(key: KeyCode) -> Option<SendEventKey> {
 
 fn get_key<'a>(key_map: &'a KeyMap, key: &SendEventKey) -> &'a str {
     match key {
+        SendEventKey::ColorRed => &key_map.color_red,
+        SendEventKey::ColorGreen => &key_map.color_green,
+        SendEventKey::ColorBlue => &key_map.color_blue,
+        SendEventKey::ColorYellow => &key_map.color_yellow,
         SendEventKey::DpadUp => &key_map.dpad_up,
         SendEventKey::DpadDown => &key_map.dpad_down,
         SendEventKey::DpadLeft => &key_map.dpad_left,

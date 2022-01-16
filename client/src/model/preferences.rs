@@ -21,6 +21,10 @@ pub struct Preferences {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct KeyMap {
+    pub color_red: String,
+    pub color_green: String,
+    pub color_blue: String,
+    pub color_yellow: String,
     pub dpad_up: String,
     pub dpad_down: String,
     pub dpad_left: String,
@@ -33,6 +37,10 @@ pub struct KeyMap {
 impl Default for KeyMap {
     fn default() -> Self {
         Self {
+            color_red: "KEYCODE_PROG_RED".into(),
+            color_green: "KEYCODE_PROG_GREEN".into(),
+            color_blue: "KEYCODE_PROG_BLUE".into(),
+            color_yellow: "KEYCODE_PROG_YELLOW".into(),
             dpad_up: "KEYCODE_DPAD_UP".into(),
             dpad_down: "KEYCODE_DPAD_DOWN".into(),
             dpad_left: "KEYCODE_DPAD_LEFT".into(),

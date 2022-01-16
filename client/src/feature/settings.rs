@@ -71,13 +71,14 @@ impl SettingsView {
 
     pub fn view(&mut self) -> Element<'_, SettingsViewCommand> {
         Column::new()
-            .spacing(16)
+            .spacing(8)
             .push(
                 Row::new().push(
                     Button::new(
                         &mut self.widget_state.reload_prefs_button,
                         Text::new("Reload preferences"),
                     )
+                    .width(292.into())
                     .on_press(SettingsViewCommand::OnReloadPrefsButtonClicked),
                 ),
             )
@@ -87,6 +88,7 @@ impl SettingsView {
                         &mut self.widget_state.open_prefs_button,
                         Text::new("Open preferences"),
                     )
+                    .width(292.into())
                     .on_press(SettingsViewCommand::OnOpenPrefsButtonClicked),
                 ),
             )
@@ -96,6 +98,7 @@ impl SettingsView {
                         &mut self.widget_state.open_prefs_dir_button,
                         Text::new("Open preferences directory"),
                     )
+                    .width(292.into())
                     .on_press(SettingsViewCommand::OnOpenPrefsDirButtonClicked),
                 ),
             )
@@ -105,6 +108,7 @@ impl SettingsView {
                         &mut self.widget_state.open_keycode_references_button,
                         Text::new("Open KeyCode references"),
                     )
+                    .width(292.into())
                     .on_press(SettingsViewCommand::OnOpenKeycodeReferencesButtonClicked),
                 ),
             )
@@ -112,7 +116,7 @@ impl SettingsView {
     }
 
     pub fn view_size(&self) -> (u32, u32) {
-        (270, 260)
+        (300, 260)
     }
 
     fn open_prefs(&self) {

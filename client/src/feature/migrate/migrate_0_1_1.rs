@@ -15,11 +15,12 @@
  */
 
 use crate::feature::migrate::migrate_functions::{load_toml, write_toml};
+use crate::model::FileVersion;
 use crate::prelude::*;
 use std::path::Path;
 use tracing::info;
 
-pub fn migrate_0_1_0(preferences_dir: &Path) -> Fallible<()> {
+pub fn migrate_0_1_1(preferences_dir: &Path) -> Fallible<()> {
     let preferences_path = preferences_dir.join("preferences.toml");
 
     if !preferences_path.exists() {
@@ -31,17 +32,48 @@ pub fn migrate_0_1_0(preferences_dir: &Path) -> Fallible<()> {
 
     let mut preferences = load_toml(&preferences_path)?;
 
-    if let Some(version) = preferences.get("version") {
-        info!(?version, "exists version");
+    let prefs_version = preferences["version"]
+        .as_str()
+        .context("preferences.version")?
+        .parse::<FileVersion>()?;
+
+    if "0.1.1".parse::<FileVersion>()? <= prefs_version {
+        info!(%prefs_version, "skip migration");
         return Ok(());
     }
 
     info!("set version to preferences.toml");
 
-    preferences
+    let prefs_table = preferences
         .as_table_mut()
-        .context("failed to parse to table")?
-        .insert("version".into(), toml::Value::String("0.1.0".into()));
+        .context("failed to parse to table")?;
+
+    prefs_table.insert("version".into(), toml::Value::String("0.1.1".into()));
+
+    info!("set key_map to preferences.toml");
+
+    let key_map_table = prefs_table
+        .get_mut("key_map")
+        .context("preferences.key_map")?
+        .as_table_mut()
+        .context("failed to parse to key_map table")?;
+
+    key_map_table.insert(
+        "color_red".into(),
+        toml::Value::String("KEYCODE_PROG_RED".into()),
+    );
+    key_map_table.insert(
+        "color_green".into(),
+        toml::Value::String("KEYCODE_PROG_GREEN".into()),
+    );
+    key_map_table.insert(
+        "color_blue".into(),
+        toml::Value::String("KEYCODE_PROG_BLUE".into()),
+    );
+    key_map_table.insert(
+        "color_yellow".into(),
+        toml::Value::String("KEYCODE_PROG_YELLOW".into()),
+    );
 
     write_toml(&preferences_path, &preferences)?;
 
@@ -56,8 +88,14 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn migrate_0_1_0() {
+    fn migrate_0_1_1() {
+        // tracing_subscriber::fmt()
+        //     .with_max_level(tracing::Level::TRACE)
+        //     .init();
+
         let old_preferences = r#"
+version = "0.1.0"
+
 [key_map]
 dpad_up = "KEYCODE_a"
 dpad_down = "KEYCODE_b"
@@ -74,11 +112,11 @@ home = "KEYCODE_g"
 
         prepare_preferences(prefs_dir, old_preferences);
 
-        super::migrate_0_1_0(prefs_dir).unwrap();
+        super::migrate_0_1_1(prefs_dir).unwrap();
 
         let preferences_toml = load_toml(&prefs_dir.join("preferences.toml")).unwrap();
 
-        check_version(&preferences_toml, "0.1.0");
+        check_version(&preferences_toml, "0.1.1");
 
         let actual_key_map = preferences_toml["key_map"]
             .as_table()
@@ -86,61 +124,48 @@ home = "KEYCODE_g"
             .unwrap();
 
         assert_eq!(
-            "KEYCODE_a",
-            actual_key_map["dpad_up"]
+            "KEYCODE_PROG_RED",
+            actual_key_map["color_red"]
                 .as_str()
-                .context("preferences.dpad_up")
+                .context("preferences.color_red")
                 .unwrap()
         );
+
         assert_eq!(
-            "KEYCODE_b",
-            actual_key_map["dpad_down"]
+            "KEYCODE_PROG_GREEN",
+            actual_key_map["color_green"]
                 .as_str()
-                .context("preferences.dpad_down")
+                .context("preferences.color_green")
                 .unwrap()
         );
+
         assert_eq!(
-            "KEYCODE_c",
-            actual_key_map["dpad_left"]
+            "KEYCODE_PROG_BLUE",
+            actual_key_map["color_blue"]
                 .as_str()
-                .context("preferences.dpad_c")
+                .context("preferences.color_blue")
                 .unwrap()
         );
+
         assert_eq!(
-            "KEYCODE_d",
-            actual_key_map["dpad_right"]
+            "KEYCODE_PROG_YELLOW",
+            actual_key_map["color_yellow"]
                 .as_str()
-                .context("preferences.dpad_right")
-                .unwrap()
-        );
-        assert_eq!(
-            "KEYCODE_e",
-            actual_key_map["dpad_ok"]
-                .as_str()
-                .context("preferences.dpad_ok")
-                .unwrap()
-        );
-        assert_eq!(
-            "KEYCODE_f",
-            actual_key_map["back"]
-                .as_str()
-                .context("preferences.back")
-                .unwrap()
-        );
-        assert_eq!(
-            "KEYCODE_g",
-            actual_key_map["home"]
-                .as_str()
-                .context("preferences.home")
+                .context("preferences.color_yellow")
                 .unwrap()
         );
     }
 
     #[test]
     fn skip_migrate() {
-        let old_preferences = r#"
-version = "0.1.1"
+        let preferences_str = r#"
+version = "0.1.2"
+
 [key_map]
+color_red = "red"
+color_green = "green"
+color_blue = "blue"
+color_yellow = "yellow"
 dpad_up = "KEYCODE_a"
 dpad_down = "KEYCODE_b"
 dpad_left = "KEYCODE_c"
@@ -154,12 +179,12 @@ home = "KEYCODE_g"
         let prefs_dir = temp_dir.path();
         info!(?prefs_dir);
 
-        prepare_preferences(prefs_dir, old_preferences);
+        prepare_preferences(prefs_dir, preferences_str);
 
-        super::migrate_0_1_0(prefs_dir).unwrap();
+        super::migrate_0_1_1(prefs_dir).unwrap();
 
         let new_prefs = load_toml(&prefs_dir.join("preferences.toml")).unwrap();
 
-        check_version(&new_prefs, "0.1.1");
+        check_version(&new_prefs, "0.1.2");
     }
 }

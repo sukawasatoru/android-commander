@@ -14,17 +14,20 @@
  * limitations under the License.
  */
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum SendEventKey {
-    ColorRed,
-    ColorGreen,
-    ColorBlue,
-    ColorYellow,
-    DpadUp,
-    DpadDown,
-    DpadLeft,
-    DpadRight,
-    Ok,
-    Back,
-    Home,
+use iced::button::{Style as ButtonStyle, StyleSheet as ButtonStyleSheet};
+use iced::{Color, Vector};
+
+pub struct ColorKeyStyleSheet(pub Color);
+
+impl ButtonStyleSheet for ColorKeyStyleSheet {
+    fn active(&self) -> ButtonStyle {
+        ButtonStyle {
+            shadow_offset: Vector::new(0.0, 0.0),
+            background: Some(self.0.into()),
+            border_radius: 2.0,
+            border_width: 1.0,
+            border_color: [0.7, 0.7, 0.7].into(),
+            text_color: Color::BLACK,
+        }
+    }
 }

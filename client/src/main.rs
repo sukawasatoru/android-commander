@@ -25,8 +25,8 @@ use android_commander::model::Preferences;
 use android_commander::prelude::*;
 use iced::window::{resize, Settings as WindowSettings};
 use iced::{
-    button, executor, Application, Button, Column, Command, Element, Length, Row, Settings, Space,
-    Subscription, Text,
+    button, executor, Application, Button, Column, Command, Container, Element, Length, Row,
+    Settings, Space, Subscription, Text,
 };
 use std::convert::Infallible;
 use std::path::PathBuf;
@@ -224,16 +224,20 @@ impl Application for App {
                         .on_press(AppCommand::ActiveView(ActiveView::Settings)),
                     ),
             )
-            .push(Space::new(Length::Shrink, Length::Units(16)));
+            .push(Space::new(Length::Shrink, Length::Units(12)));
 
         view = match self.active_view {
-            ActiveView::Main => {
-                view.push(self.view_main.view().map(Self::Message::MainViewCommand))
-            }
+            ActiveView::Main => view.push(
+                Container::new(self.view_main.view().map(Self::Message::MainViewCommand))
+                    .padding(4),
+            ),
             ActiveView::Settings => view.push(
-                self.view_settings
-                    .view()
-                    .map(Self::Message::SettingsViewCommand),
+                Container::new(
+                    self.view_settings
+                        .view()
+                        .map(Self::Message::SettingsViewCommand),
+                )
+                .padding(4),
             ),
         };
 
