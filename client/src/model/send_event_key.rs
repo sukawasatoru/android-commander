@@ -16,6 +16,7 @@
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum SendEventKey {
+    Back,
     ColorRed,
     ColorGreen,
     ColorBlue,
@@ -24,7 +25,16 @@ pub enum SendEventKey {
     DpadDown,
     DpadLeft,
     DpadRight,
-    Ok,
-    Back,
+    DpadOk,
     Home,
+    NumPad0,
+    NumPad1,
+    NumPad2,
+    NumPad3,
+    NumPad4,
+    NumPad5,
+    NumPad6,
+    NumPad7,
+    NumPad8,
+    NumPad9,
 }

@@ -21,6 +21,7 @@ pub struct Preferences {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct KeyMap {
+    pub back: String,
     pub color_red: String,
     pub color_green: String,
     pub color_blue: String,
@@ -30,7 +31,16 @@ pub struct KeyMap {
     pub dpad_left: String,
     pub dpad_right: String,
     pub dpad_ok: String,
-    pub back: String,
+    pub numpad_0: String,
+    pub numpad_1: String,
+    pub numpad_2: String,
+    pub numpad_3: String,
+    pub numpad_4: String,
+    pub numpad_5: String,
+    pub numpad_6: String,
+    pub numpad_7: String,
+    pub numpad_8: String,
+    pub numpad_9: String,
     pub home: String,
 }
 
@@ -46,6 +56,16 @@ impl Default for KeyMap {
             dpad_left: "KEYCODE_DPAD_LEFT".into(),
             dpad_right: "KEYCODE_DPAD_RIGHT".into(),
             dpad_ok: "KEYCODE_DPAD_CENTER".into(),
+            numpad_0: "KEYCODE_NUMPAD_0".into(),
+            numpad_1: "KEYCODE_NUMPAD_1".into(),
+            numpad_2: "KEYCODE_NUMPAD_2".into(),
+            numpad_3: "KEYCODE_NUMPAD_3".into(),
+            numpad_4: "KEYCODE_NUMPAD_4".into(),
+            numpad_5: "KEYCODE_NUMPAD_5".into(),
+            numpad_6: "KEYCODE_NUMPAD_6".into(),
+            numpad_7: "KEYCODE_NUMPAD_7".into(),
+            numpad_8: "KEYCODE_NUMPAD_8".into(),
+            numpad_9: "KEYCODE_NUMPAD_9".into(),
             back: "KEYCODE_BACK".into(),
             home: "KEYCODE_HOME".into(),
         }

@@ -26,8 +26,8 @@ use crate::prelude::*;
 use iced::keyboard::{Event as KeyboardEvent, KeyCode};
 use iced::svg::Handle as SvgHandle;
 use iced::{
-    button, pick_list, Button, Checkbox, Color, Column, Command, Element, Length, PickList, Row,
-    Space, Subscription, Svg, Text,
+    button, pick_list, Button, Checkbox, Color, Column, Command, Container, Element, Length,
+    PickList, Row, Space, Subscription, Svg, Text,
 };
 use iced_native::subscription::events as native_events;
 use iced_native::Event as NativeEvent;
@@ -80,6 +80,16 @@ struct WidgetStates {
     color_green_button: button::State,
     color_yellow_button: button::State,
     color_blue_button: button::State,
+    numpad_0: button::State,
+    numpad_1: button::State,
+    numpad_2: button::State,
+    numpad_3: button::State,
+    numpad_4: button::State,
+    numpad_5: button::State,
+    numpad_6: button::State,
+    numpad_7: button::State,
+    numpad_8: button::State,
+    numpad_9: button::State,
 }
 
 impl MainView {
@@ -377,7 +387,7 @@ impl MainView {
                         Button::new(&mut self.widget_states.button_ok, Text::new("OK"))
                             .width(button_width)
                             .height(button_height)
-                            .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Ok)),
+                            .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadOk)),
                     )
                     .push(
                         Button::new(&mut self.widget_states.button_right, Text::new("Right (l)"))
@@ -417,11 +427,145 @@ impl MainView {
                             .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Home)),
                     ),
             )
+            .push(Space::new(Length::Shrink, Length::Units(8)))
+            .push(
+                Row::new()
+                    .spacing(4)
+                    .push(Space::new(4.into(), Length::Shrink))
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.numpad_1,
+                            Container::new(Text::new("1"))
+                                .width(Length::Fill)
+                                .center_x(),
+                        )
+                        .width(button_width)
+                        .height(button_height)
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad1)),
+                    )
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.numpad_2,
+                            Container::new(Text::new("2"))
+                                .width(Length::Fill)
+                                .center_x(),
+                        )
+                        .width(button_width)
+                        .height(button_height)
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad2)),
+                    )
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.numpad_3,
+                            Container::new(Text::new("3"))
+                                .width(Length::Fill)
+                                .center_x(),
+                        )
+                        .width(button_width)
+                        .height(button_height)
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad3)),
+                    ),
+            )
+            .push(Space::new(Length::Shrink, Length::Units(4)))
+            .push(
+                Row::new()
+                    .spacing(4)
+                    .push(Space::new(4.into(), Length::Shrink))
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.numpad_4,
+                            Container::new(Text::new("4"))
+                                .width(Length::Fill)
+                                .center_x(),
+                        )
+                        .width(button_width)
+                        .height(button_height)
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad4)),
+                    )
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.numpad_5,
+                            Container::new(Text::new("5"))
+                                .width(Length::Fill)
+                                .center_x(),
+                        )
+                        .width(button_width)
+                        .height(button_height)
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad5)),
+                    )
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.numpad_6,
+                            Container::new(Text::new("6"))
+                                .width(Length::Fill)
+                                .center_x(),
+                        )
+                        .width(button_width)
+                        .height(button_height)
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad6)),
+                    ),
+            )
+            .push(Space::new(Length::Shrink, Length::Units(4)))
+            .push(
+                Row::new()
+                    .spacing(4)
+                    .push(Space::new(4.into(), Length::Shrink))
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.numpad_7,
+                            Container::new(Text::new("7"))
+                                .width(Length::Fill)
+                                .center_x(),
+                        )
+                        .width(button_width)
+                        .height(button_height)
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad7)),
+                    )
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.numpad_8,
+                            Container::new(Text::new("8"))
+                                .width(Length::Fill)
+                                .center_x(),
+                        )
+                        .width(button_width)
+                        .height(button_height)
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad8)),
+                    )
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.numpad_9,
+                            Container::new(Text::new("9"))
+                                .width(Length::Fill)
+                                .center_x(),
+                        )
+                        .width(button_width)
+                        .height(button_height)
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad9)),
+                    ),
+            )
+            .push(Space::new(Length::Shrink, Length::Units(4)))
+            .push(
+                Row::new()
+                    .spacing(4)
+                    .push(Space::new((90 + 8).into(), Length::Shrink))
+                    .push(
+                        Button::new(
+                            &mut self.widget_states.numpad_0,
+                            Container::new(Text::new("0"))
+                                .width(Length::Fill)
+                                .center_x(),
+                        )
+                        .width(button_width)
+                        .height(button_height)
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad0)),
+                    ),
+            )
             .into()
     }
 
     pub fn view_size() -> (u32, u32) {
-        (300, 360)
+        (300, 480)
     }
 }
 
@@ -432,7 +576,7 @@ fn create_send_event_key(key: KeyCode) -> Option<SendEventKey> {
         KeyCode::H => Some(SendEventKey::DpadLeft),
         KeyCode::L => Some(SendEventKey::DpadRight),
         KeyCode::T => Some(SendEventKey::Home),
-        KeyCode::Enter => Some(SendEventKey::Ok),
+        KeyCode::Enter => Some(SendEventKey::DpadOk),
         KeyCode::Backspace => Some(SendEventKey::Back),
         _ => None,
     }
@@ -440,6 +584,7 @@ fn create_send_event_key(key: KeyCode) -> Option<SendEventKey> {
 
 fn get_key<'a>(key_map: &'a KeyMap, key: &SendEventKey) -> &'a str {
     match key {
+        SendEventKey::Back => &key_map.back,
         SendEventKey::ColorRed => &key_map.color_red,
         SendEventKey::ColorGreen => &key_map.color_green,
         SendEventKey::ColorBlue => &key_map.color_blue,
@@ -448,8 +593,17 @@ fn get_key<'a>(key_map: &'a KeyMap, key: &SendEventKey) -> &'a str {
         SendEventKey::DpadDown => &key_map.dpad_down,
         SendEventKey::DpadLeft => &key_map.dpad_left,
         SendEventKey::DpadRight => &key_map.dpad_right,
-        SendEventKey::Ok => &key_map.dpad_ok,
-        SendEventKey::Back => &key_map.back,
+        SendEventKey::DpadOk => &key_map.dpad_ok,
+        SendEventKey::NumPad0 => &key_map.numpad_0,
+        SendEventKey::NumPad1 => &key_map.numpad_1,
+        SendEventKey::NumPad2 => &key_map.numpad_2,
+        SendEventKey::NumPad3 => &key_map.numpad_3,
+        SendEventKey::NumPad4 => &key_map.numpad_4,
+        SendEventKey::NumPad5 => &key_map.numpad_5,
+        SendEventKey::NumPad6 => &key_map.numpad_6,
+        SendEventKey::NumPad7 => &key_map.numpad_7,
+        SendEventKey::NumPad8 => &key_map.numpad_8,
+        SendEventKey::NumPad9 => &key_map.numpad_9,
         SendEventKey::Home => &key_map.home,
     }
 }

@@ -16,12 +16,14 @@
 
 mod migrate_0_1_0;
 mod migrate_0_1_1;
+mod migrate_0_1_2;
 mod migrate_functions;
 
 use crate::model::FileVersion;
 use crate::prelude::*;
 use migrate_0_1_0::migrate_0_1_0;
 use migrate_0_1_1::migrate_0_1_1;
+use migrate_0_1_2::migrate_0_1_2;
 use std::fs::File;
 use std::io::{prelude::*, BufReader, BufWriter};
 use std::path::Path;
@@ -41,6 +43,7 @@ pub fn migrate() -> Fallible<()> {
     let functions: Vec<(&str, Box<dyn Fn() -> Fallible<()>>)> = vec![
         ("0.1.0", Box::new(|| migrate_0_1_0(prefs_dir))),
         ("0.1.1", Box::new(|| migrate_0_1_1(prefs_dir))),
+        ("0.1.2", Box::new(|| migrate_0_1_2(prefs_dir))),
     ];
 
     for (version_str, migrate) in functions {

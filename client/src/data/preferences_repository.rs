@@ -123,6 +123,16 @@ struct PrefsKeyMap {
     dpad_left: String,
     dpad_right: String,
     dpad_ok: String,
+    numpad_0: String,
+    numpad_1: String,
+    numpad_2: String,
+    numpad_3: String,
+    numpad_4: String,
+    numpad_5: String,
+    numpad_6: String,
+    numpad_7: String,
+    numpad_8: String,
+    numpad_9: String,
     back: String,
     home: String,
 }
@@ -130,6 +140,7 @@ struct PrefsKeyMap {
 impl From<PrefsKeyMap> for KeyMap {
     fn from(value: PrefsKeyMap) -> Self {
         Self {
+            back: value.back,
             color_red: value.color_red,
             color_green: value.color_green,
             color_blue: value.color_blue,
@@ -139,7 +150,16 @@ impl From<PrefsKeyMap> for KeyMap {
             dpad_left: value.dpad_left,
             dpad_right: value.dpad_right,
             dpad_ok: value.dpad_ok,
-            back: value.back,
+            numpad_0: value.numpad_0,
+            numpad_1: value.numpad_1,
+            numpad_2: value.numpad_2,
+            numpad_3: value.numpad_3,
+            numpad_4: value.numpad_4,
+            numpad_5: value.numpad_5,
+            numpad_6: value.numpad_6,
+            numpad_7: value.numpad_7,
+            numpad_8: value.numpad_8,
+            numpad_9: value.numpad_9,
             home: value.home,
         }
     }
@@ -148,6 +168,7 @@ impl From<PrefsKeyMap> for KeyMap {
 impl From<KeyMap> for PrefsKeyMap {
     fn from(value: KeyMap) -> Self {
         Self {
+            back: value.back,
             color_red: value.color_red,
             color_green: value.color_green,
             color_blue: value.color_blue,
@@ -157,7 +178,16 @@ impl From<KeyMap> for PrefsKeyMap {
             dpad_left: value.dpad_left,
             dpad_right: value.dpad_right,
             dpad_ok: value.dpad_ok,
-            back: value.back,
+            numpad_0: value.numpad_0,
+            numpad_1: value.numpad_1,
+            numpad_2: value.numpad_2,
+            numpad_3: value.numpad_3,
+            numpad_4: value.numpad_4,
+            numpad_5: value.numpad_5,
+            numpad_6: value.numpad_6,
+            numpad_7: value.numpad_7,
+            numpad_8: value.numpad_8,
+            numpad_9: value.numpad_9,
             home: value.home,
         }
     }
