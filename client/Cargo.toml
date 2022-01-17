@@ -1,6 +1,6 @@
 [package]
 name = "android-commander"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Satoru Sukawa <sukawasatoru.github@outlook.jp>"]
 edition = "2021"
 
