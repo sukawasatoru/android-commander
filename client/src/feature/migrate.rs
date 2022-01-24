@@ -17,6 +17,7 @@
 mod migrate_0_1_0;
 mod migrate_0_1_1;
 mod migrate_0_1_2;
+mod migrate_0_1_3;
 mod migrate_functions;
 
 use crate::model::FileVersion;
@@ -25,6 +26,7 @@ use directories::ProjectDirs;
 use migrate_0_1_0::migrate_0_1_0;
 use migrate_0_1_1::migrate_0_1_1;
 use migrate_0_1_2::migrate_0_1_2;
+use migrate_0_1_3::migrate_0_1_3;
 use std::fs::File;
 use std::io::{prelude::*, BufReader, BufWriter};
 use std::path::Path;
@@ -56,6 +58,7 @@ pub fn migrate() -> Fallible<()> {
     Ok(())
 }
 
+#[allow(clippy::type_complexity)]
 fn prepare_migrate_functions(
     project_dirs: &ProjectDirs,
 ) -> Vec<(&str, Box<dyn Fn() -> Fallible<()>>)> {
@@ -72,6 +75,9 @@ fn prepare_migrate_functions(
 
     let prefs_dir = config_dir.clone();
     functions.push(("0.1.2", Box::new(move || migrate_0_1_2(&prefs_dir))));
+
+    let prefs_dir = config_dir;
+    functions.push(("0.1.3", Box::new(move || migrate_0_1_3(&prefs_dir))));
 
     functions
 }

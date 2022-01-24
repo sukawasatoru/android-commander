@@ -441,7 +441,7 @@ impl MainView {
                         )
                         .width(button_width)
                         .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad1)),
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num1)),
                     )
                     .push(
                         Button::new(
@@ -452,7 +452,7 @@ impl MainView {
                         )
                         .width(button_width)
                         .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad2)),
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num2)),
                     )
                     .push(
                         Button::new(
@@ -463,7 +463,7 @@ impl MainView {
                         )
                         .width(button_width)
                         .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad3)),
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num3)),
                     ),
             )
             .push(Space::new(Length::Shrink, Length::Units(4)))
@@ -480,7 +480,7 @@ impl MainView {
                         )
                         .width(button_width)
                         .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad4)),
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num4)),
                     )
                     .push(
                         Button::new(
@@ -491,7 +491,7 @@ impl MainView {
                         )
                         .width(button_width)
                         .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad5)),
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num5)),
                     )
                     .push(
                         Button::new(
@@ -502,7 +502,7 @@ impl MainView {
                         )
                         .width(button_width)
                         .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad6)),
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num6)),
                     ),
             )
             .push(Space::new(Length::Shrink, Length::Units(4)))
@@ -519,7 +519,7 @@ impl MainView {
                         )
                         .width(button_width)
                         .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad7)),
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num7)),
                     )
                     .push(
                         Button::new(
@@ -530,7 +530,7 @@ impl MainView {
                         )
                         .width(button_width)
                         .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad8)),
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num8)),
                     )
                     .push(
                         Button::new(
@@ -541,7 +541,7 @@ impl MainView {
                         )
                         .width(button_width)
                         .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad9)),
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num9)),
                     ),
             )
             .push(Space::new(Length::Shrink, Length::Units(4)))
@@ -558,7 +558,7 @@ impl MainView {
                         )
                         .width(button_width)
                         .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::NumPad0)),
+                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num0)),
                     ),
             )
             .into()
@@ -594,16 +594,16 @@ fn get_key<'a>(key_map: &'a KeyMap, key: &SendEventKey) -> &'a str {
         SendEventKey::DpadLeft => &key_map.dpad_left,
         SendEventKey::DpadRight => &key_map.dpad_right,
         SendEventKey::DpadOk => &key_map.dpad_ok,
-        SendEventKey::NumPad0 => &key_map.numpad_0,
-        SendEventKey::NumPad1 => &key_map.numpad_1,
-        SendEventKey::NumPad2 => &key_map.numpad_2,
-        SendEventKey::NumPad3 => &key_map.numpad_3,
-        SendEventKey::NumPad4 => &key_map.numpad_4,
-        SendEventKey::NumPad5 => &key_map.numpad_5,
-        SendEventKey::NumPad6 => &key_map.numpad_6,
-        SendEventKey::NumPad7 => &key_map.numpad_7,
-        SendEventKey::NumPad8 => &key_map.numpad_8,
-        SendEventKey::NumPad9 => &key_map.numpad_9,
+        SendEventKey::Num0 => &key_map.num_0,
+        SendEventKey::Num1 => &key_map.num_1,
+        SendEventKey::Num2 => &key_map.num_2,
+        SendEventKey::Num3 => &key_map.num_3,
+        SendEventKey::Num4 => &key_map.num_4,
+        SendEventKey::Num5 => &key_map.num_5,
+        SendEventKey::Num6 => &key_map.num_6,
+        SendEventKey::Num7 => &key_map.num_7,
+        SendEventKey::Num8 => &key_map.num_8,
+        SendEventKey::Num9 => &key_map.num_9,
         SendEventKey::Home => &key_map.home,
     }
 }
