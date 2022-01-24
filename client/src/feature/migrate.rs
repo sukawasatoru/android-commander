@@ -21,12 +21,14 @@ mod migrate_functions;
 
 use crate::model::FileVersion;
 use crate::prelude::*;
+use directories::ProjectDirs;
 use migrate_0_1_0::migrate_0_1_0;
 use migrate_0_1_1::migrate_0_1_1;
 use migrate_0_1_2::migrate_0_1_2;
 use std::fs::File;
 use std::io::{prelude::*, BufReader, BufWriter};
 use std::path::Path;
+use std::rc::Rc;
 use tracing::info;
 
 pub fn migrate() -> Fallible<()> {
@@ -37,14 +39,8 @@ pub fn migrate() -> Fallible<()> {
     let project_dirs = directories::ProjectDirs::from("com", "sukawasatoru", "AndroidCommander")
         .context("directories")?;
 
-    let prefs_dir = project_dirs.config_dir();
-
     #[allow(clippy::type_complexity)]
-    let functions: Vec<(&str, Box<dyn Fn() -> Fallible<()>>)> = vec![
-        ("0.1.0", Box::new(|| migrate_0_1_0(prefs_dir))),
-        ("0.1.1", Box::new(|| migrate_0_1_1(prefs_dir))),
-        ("0.1.2", Box::new(|| migrate_0_1_2(prefs_dir))),
-    ];
+    let functions = prepare_migrate_functions(&project_dirs);
 
     for (version_str, migrate) in functions {
         let migrate_version = version_str.parse::<FileVersion>()?;
@@ -58,6 +54,26 @@ pub fn migrate() -> Fallible<()> {
 
     info!(%version, "succeeded all migration");
     Ok(())
+}
+
+fn prepare_migrate_functions(
+    project_dirs: &ProjectDirs,
+) -> Vec<(&str, Box<dyn Fn() -> Fallible<()>>)> {
+    let config_dir = Rc::new(project_dirs.config_dir().to_path_buf());
+
+    #[allow(clippy::type_complexity)]
+    let mut functions: Vec<(&str, Box<dyn Fn() -> Fallible<()>>)> = vec![];
+
+    let prefs_dir = config_dir.clone();
+    functions.push(("0.1.0", Box::new(move || migrate_0_1_0(&prefs_dir))));
+
+    let prefs_dir = config_dir.clone();
+    functions.push(("0.1.1", Box::new(move || migrate_0_1_1(&prefs_dir))));
+
+    let prefs_dir = config_dir.clone();
+    functions.push(("0.1.2", Box::new(move || migrate_0_1_2(&prefs_dir))));
+
+    functions
 }
 
 fn set_latest_version(preferences_dir: &Path, new_version: FileVersion) -> Fallible<()> {
@@ -100,6 +116,8 @@ fn set_latest_version(preferences_dir: &Path, new_version: FileVersion) -> Falli
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::feature::migrate::migrate_functions::load_toml;
+    use crate::feature::migrate::migrate_functions::tests::prepare_preferences;
     use tempfile::tempdir;
     use tracing::info;
 
@@ -126,29 +144,9 @@ home = "KEYCODE_g"
         let prefs_dir = temp_dir.path();
         info!(?prefs_dir);
 
-        let mut writer = BufWriter::new(
-            File::create(prefs_dir.join("preferences.toml"))
-                .context("create preferences.toml")
-                .unwrap(),
-        );
-        writer
-            .write_all(old_preferences.as_bytes())
-            .context("write preferences.toml")
-            .unwrap();
-        writer.flush().unwrap();
-        drop(writer);
-
+        prepare_preferences(prefs_dir, old_preferences);
         set_latest_version(prefs_dir, "0.1.0".parse().unwrap()).unwrap();
-
-        let mut buf = String::new();
-        let mut reader = BufReader::new(File::open(prefs_dir.join("preferences.toml")).unwrap());
-        reader
-            .read_to_string(&mut buf)
-            .context("read preferences.toml")
-            .unwrap();
-        let preferences_toml = toml::from_str::<toml::Value>(&buf)
-            .context("parse preferences.toml")
-            .unwrap();
+        let preferences_toml = load_toml(&prefs_dir.join("preferences.toml")).unwrap();
 
         assert_eq!(
             preferences_toml["version"]
@@ -156,6 +154,25 @@ home = "KEYCODE_g"
                 .context("preferences.toml 's version")
                 .unwrap(),
             "0.1.0"
+        );
+    }
+
+    #[test]
+    fn latest_version() {
+        let project_dirs =
+            directories::ProjectDirs::from("com", "sukawasatoru", "AndroidCommanderTest").unwrap();
+        let last_version = prepare_migrate_functions(&project_dirs)
+            .last()
+            .unwrap()
+            .0
+            .parse::<FileVersion>()
+            .unwrap();
+
+        assert!(
+            last_version <= env!("CARGO_PKG_VERSION").parse::<FileVersion>().unwrap(),
+            "last_version: {}, env: {}",
+            last_version,
+            env!("CARGO_PKG_VERSION")
         );
     }
 }
