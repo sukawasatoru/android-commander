@@ -28,10 +28,6 @@ jobs:
         with:
           name: android-commander-server
           path: server/app/build/outputs/android-commander-server
-      - name: ls
-        run: |
-            Get-ChildItem -Recurse D:\a\android-commander\android-commander\server\app\build\outputs\android-commander-server
-            exit 1
       - name: Setup Rust
         run: make -C client prepare
       - name: Build
