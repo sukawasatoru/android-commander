@@ -30,7 +30,7 @@ jobs:
           path: server/app/build/outputs/android-commander-server
       - name: ls
         run: |
-            dir /T server/app/build/outputs/android-commander-server
+            dir /T D:\a\android-commander\android-commander\server\app\build\outputs\android-commander-server
             exit 1
       - name: Setup Rust
         run: make -C client prepare
