@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "=1.0.52"
-async-trait = "=0.1.52"
+async-trait = "=0.1.53"
 directories = "=4.0.1"
 dotenv = "=0.15.0"
 rust-embed = "=6.3.0"
