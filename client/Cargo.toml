@@ -12,7 +12,7 @@ dotenv = "=0.15.0"
 rust-embed = "=6.3.0"
 tempfile = "=3.2.0"
 thiserror = "=1.0.30"
-toml = "=0.5.8"
+toml = "=0.5.9"
 tracing = "=0.1.29"
 
 [dependencies.iced]
