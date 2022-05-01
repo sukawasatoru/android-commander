@@ -33,7 +33,7 @@ version = "=1.0.132"
 features = ["derive"]
 
 [dependencies.tokio]
-version = "=1.15.0"
+version = "=1.18.0"
 features = ["fs", "io-std", "io-util", "macros", "sync"]
 
 [dependencies.tracing-subscriber]
