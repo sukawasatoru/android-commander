@@ -29,7 +29,7 @@ git = "https://github.com/hecrj/iced.git"
 rev = "b7bc169120d3447ead238e974007027a5152d341"
 
 [dependencies.serde]
-version = "=1.0.132"
+version = "=1.0.139"
 features = ["derive"]
 
 [dependencies.tokio]
