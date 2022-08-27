@@ -145,7 +145,7 @@ impl Application for App {
     }
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
-        return match message {
+        match message {
             AppCommand::ActiveView(data) => {
                 info!(?data, "onActiveView");
                 self.active_view = data;
@@ -171,7 +171,7 @@ impl Application for App {
                 .view_settings
                 .update(data)
                 .map(AppCommand::SettingsViewCommand),
-        };
+        }
     }
 
     // noinspection for Rust plugin v.176.
@@ -256,7 +256,7 @@ mod main_recipe {
         unfold(
             std::any::TypeId::of::<CommonCommandReceiverType>(),
             rx,
-            move |state| execute(state),
+            execute,
         )
     }
 

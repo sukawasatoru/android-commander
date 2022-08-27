@@ -48,7 +48,7 @@ pub fn adb_server(
     unfold(
         std::any::TypeId::of::<AdbServerRecipeType>(),
         StreamState::Init(rx, device),
-        move |state| execute(state),
+        execute,
     )
 }
 
