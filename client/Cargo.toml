@@ -5,15 +5,18 @@ authors = ["Satoru Sukawa <sukawasatoru.github@outlook.jp>"]
 edition = "2021"
 
 [dependencies]
-anyhow = "=1.0.52"
-async-trait = "=0.1.52"
+anyhow = "=1.0.62"
+async-trait = "=0.1.57"
 directories = "=4.0.1"
 dotenv = "=0.15.0"
-rust-embed = "=6.3.0"
-tempfile = "=3.2.0"
-thiserror = "=1.0.30"
-toml = "=0.5.8"
-tracing = "=0.1.29"
+rust-embed = "=6.4.0"
+serde = { version = "=1.0.144", features = ["derive"] }
+tempfile = "=3.3.0"
+thiserror = "=1.0.32"
+tokio = { version = "=1.20.1", features = ["fs", "io-std", "io-util", "macros", "sync"] }
+toml = "=0.5.9"
+tracing = "=0.1.36"
+tracing-subscriber = { version = "=0.3.15", features = ["env-filter"] }
 
 [dependencies.iced]
 git = "https://github.com/hecrj/iced.git"
@@ -27,18 +30,6 @@ rev = "b7bc169120d3447ead238e974007027a5152d341"
 [dependencies.iced_native]
 git = "https://github.com/hecrj/iced.git"
 rev = "b7bc169120d3447ead238e974007027a5152d341"
-
-[dependencies.serde]
-version = "=1.0.132"
-features = ["derive"]
-
-[dependencies.tokio]
-version = "=1.15.0"
-features = ["fs", "io-std", "io-util", "macros", "sync"]
-
-[dependencies.tracing-subscriber]
-version = "=0.3.5"
-features = ["env-filter"]
 
 [target.'cfg(windows)'.dependencies.winapi]
 version = "=0.3.9"
