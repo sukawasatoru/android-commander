@@ -15,8 +15,9 @@
  */
 
 use crate::model::app_command::AppCommand;
-use iced::widget::{Column, Row};
-use iced::{button, Button, Command, Element, Text};
+use crate::model::ButtonStyle;
+use iced::widget::{button, column, text, Column};
+use iced::{Command, Element};
 use std::path::PathBuf;
 use tokio::sync::broadcast::Sender;
 use tracing::{debug, warn};
@@ -24,7 +25,6 @@ use tracing::{debug, warn};
 pub struct SettingsView {
     common_command_tx: Sender<AppCommand>,
     config_file_path: PathBuf,
-    widget_state: WidgetState,
 }
 
 impl SettingsView {
@@ -32,17 +32,8 @@ impl SettingsView {
         Self {
             common_command_tx,
             config_file_path,
-            widget_state: Default::default(),
         }
     }
-}
-
-#[derive(Default)]
-struct WidgetState {
-    open_keycode_references_button: button::State,
-    open_prefs_button: button::State,
-    open_prefs_dir_button: button::State,
-    reload_prefs_button: button::State,
 }
 
 #[derive(Clone, Debug)]
@@ -69,50 +60,24 @@ impl SettingsView {
         Command::none()
     }
 
-    pub fn view(&mut self) -> Element<'_, SettingsViewCommand> {
-        Column::new()
-            .spacing(8)
-            .push(
-                Row::new().push(
-                    Button::new(
-                        &mut self.widget_state.reload_prefs_button,
-                        Text::new("Reload preferences"),
-                    )
-                    .width(292.into())
-                    .on_press(SettingsViewCommand::OnReloadPrefsButtonClicked),
-                ),
-            )
-            .push(
-                Row::new().push(
-                    Button::new(
-                        &mut self.widget_state.open_prefs_button,
-                        Text::new("Open preferences"),
-                    )
-                    .width(292.into())
-                    .on_press(SettingsViewCommand::OnOpenPrefsButtonClicked),
-                ),
-            )
-            .push(
-                Row::new().push(
-                    Button::new(
-                        &mut self.widget_state.open_prefs_dir_button,
-                        Text::new("Open preferences directory"),
-                    )
-                    .width(292.into())
-                    .on_press(SettingsViewCommand::OnOpenPrefsDirButtonClicked),
-                ),
-            )
-            .push(
-                Row::new().push(
-                    Button::new(
-                        &mut self.widget_state.open_keycode_references_button,
-                        Text::new("Open KeyCode references"),
-                    )
-                    .width(292.into())
-                    .on_press(SettingsViewCommand::OnOpenKeycodeReferencesButtonClicked),
-                ),
-            )
-            .into()
+    pub fn view<'a, Theme>(&'a self) -> Element<'a, SettingsViewCommand, iced::Renderer<Theme>>
+    where
+        Theme: button::StyleSheet<Style = ButtonStyle> + 'a,
+        Theme: text::StyleSheet,
+    {
+        let view: Column<SettingsViewCommand, iced::Renderer<Theme>> = column![
+            button("Reload preferences")
+                .width(292.into())
+                .on_press(SettingsViewCommand::OnReloadPrefsButtonClicked),
+            button("Open preferences directory")
+                .width(292.into())
+                .on_press(SettingsViewCommand::OnOpenPrefsDirButtonClicked),
+            button("Open KeyCode references")
+                .width(292.into())
+                .on_press(SettingsViewCommand::OnOpenKeycodeReferencesButtonClicked),
+        ]
+        .spacing(8);
+        view.into()
     }
 
     pub fn view_size(&self) -> (u32, u32) {

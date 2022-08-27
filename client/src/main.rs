@@ -21,13 +21,11 @@ use android_commander::feature::main::{MainView, MainViewCommand};
 use android_commander::feature::migrate::migrate;
 use android_commander::feature::settings::{SettingsView, SettingsViewCommand};
 use android_commander::model::app_command::AppCommand as CommonAppCommand;
-use android_commander::model::Preferences;
+use android_commander::model::{AppTheme, Preferences};
 use android_commander::prelude::*;
+use iced::widget::{button, column, container, row, Column, Space};
 use iced::window::{resize, Settings as WindowSettings};
-use iced::{
-    button, executor, Application, Button, Column, Command, Container, Element, Length, Row,
-    Settings, Space, Subscription, Text,
-};
+use iced::{executor, Application, Command, Element, Length, Settings, Subscription};
 use std::convert::Infallible;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -48,12 +46,6 @@ enum AppCommand {
     OnNewPrefs(Option<Arc<Preferences>>),
     OnPrefsFileUpdated,
     SettingsViewCommand(SettingsViewCommand),
-}
-
-#[derive(Debug, Default)]
-struct WidgetStates {
-    active_view_main_button: button::State,
-    active_view_settings_button: button::State,
 }
 
 pub trait AppModule {
@@ -116,12 +108,12 @@ struct App {
     common_command_tx: Sender<CommonAppCommand>,
     view_main: MainView,
     view_settings: SettingsView,
-    widget_states: WidgetStates,
 }
 
 impl Application for App {
     type Executor = executor::Default;
     type Message = AppCommand;
+    type Theme = AppTheme;
     type Flags = AppFlags;
 
     fn new(flags: Self::Flags) -> (Self, Command<Self::Message>) {
@@ -138,13 +130,11 @@ impl Application for App {
                 common_command_tx: tx.clone(),
                 view_main: MainView::new(prefs),
                 view_settings: SettingsView::new(tx, config_file_path),
-                widget_states: Default::default(),
             },
             Command::batch([
-                Command::perform(
-                    iced_futures::futures::future::ok::<(), Infallible>(()),
-                    |_| AppCommand::OnInit,
-                ),
+                Command::perform(iced::futures::future::ok::<(), Infallible>(()), |_| {
+                    AppCommand::OnInit
+                }),
                 MainView::init_command().map(AppCommand::MainViewCommand),
             ]),
         )
@@ -184,55 +174,31 @@ impl Application for App {
         };
     }
 
-    fn subscription(&self) -> Subscription<Self::Message> {
-        Subscription::batch([
-            Subscription::from_recipe(main_recipe::CommonCommandReceiverRecipe::new(
-                self.common_command_tx.subscribe(),
-            ))
-            .map(|data: CommonAppCommand| match data {
-                CommonAppCommand::OnPrefsFileUpdated => AppCommand::OnPrefsFileUpdated,
-            }),
-            self.view_main
-                .subscription()
-                .map(AppCommand::MainViewCommand),
-        ])
-    }
-
-    fn view(&mut self) -> Element<'_, Self::Message> {
+    // noinspection for Rust plugin v.176.
+    // noinspection RsTypeCheck
+    fn view(&self) -> Element<'_, Self::Message, iced::Renderer<Self::Theme>> {
         let button_width = Length::Units(90);
         let button_height = Length::Units(30);
-
-        let mut view = Column::new()
-            .push(
-                Row::new()
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.active_view_main_button,
-                            Text::new("Main"),
-                        )
-                        .width(button_width)
-                        .height(button_height)
-                        .on_press(AppCommand::ActiveView(ActiveView::Main)),
-                    )
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.active_view_settings_button,
-                            Text::new("Settings"),
-                        )
-                        .width(button_width)
-                        .height(button_height)
-                        .on_press(AppCommand::ActiveView(ActiveView::Settings)),
-                    ),
-            )
-            .push(Space::new(Length::Shrink, Length::Units(12)));
+        let mut view: Column<Self::Message, iced::Renderer<Self::Theme>> = column![
+            row![
+                button("Main")
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(AppCommand::ActiveView(ActiveView::Main)),
+                button("Settings")
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(AppCommand::ActiveView(ActiveView::Settings)),
+            ],
+            Space::with_height(12.into()),
+        ];
 
         view = match self.active_view {
             ActiveView::Main => view.push(
-                Container::new(self.view_main.view().map(Self::Message::MainViewCommand))
-                    .padding(4),
+                container(self.view_main.view().map(Self::Message::MainViewCommand)).padding(4),
             ),
             ActiveView::Settings => view.push(
-                Container::new(
+                container(
                     self.view_settings
                         .view()
                         .map(Self::Message::SettingsViewCommand),
@@ -242,6 +208,19 @@ impl Application for App {
         };
 
         view.into()
+    }
+
+    fn subscription(&self) -> Subscription<Self::Message> {
+        Subscription::batch([
+            main_recipe::common_command_receiver(self.common_command_tx.subscribe()).map(
+                |data: CommonAppCommand| match data {
+                    CommonAppCommand::OnPrefsFileUpdated => AppCommand::OnPrefsFileUpdated,
+                },
+            ),
+            self.view_main
+                .subscription()
+                .map(AppCommand::MainViewCommand),
+        ])
     }
 }
 
@@ -265,48 +244,34 @@ impl App {
 
 mod main_recipe {
     use android_commander::model::app_command::AppCommand as CommonAppCommand;
-    use iced::futures::stream::unfold;
-    use iced_futures::subscription::Recipe;
-    use std::hash::Hash;
+    use iced::subscription::{unfold, Subscription};
     use tokio::sync::broadcast::Receiver;
     use tracing::debug;
 
-    pub struct CommonCommandReceiverRecipe {
+    struct CommonCommandReceiverType;
+
+    pub fn common_command_receiver(
         rx: Receiver<CommonAppCommand>,
+    ) -> Subscription<CommonAppCommand> {
+        unfold(
+            std::any::TypeId::of::<CommonCommandReceiverType>(),
+            rx,
+            move |state| execute(state),
+        )
     }
 
-    impl CommonCommandReceiverRecipe {
-        pub fn new(rx: Receiver<CommonAppCommand>) -> Self {
-            Self { rx }
-        }
-    }
-
-    impl<Hasher, Event> Recipe<Hasher, Event> for CommonCommandReceiverRecipe
-    where
-        Hasher: std::hash::Hasher,
-    {
-        type Output = CommonAppCommand;
-
-        fn hash(&self, state: &mut Hasher) {
-            std::any::TypeId::of::<Self>().hash(state);
-        }
-
-        fn stream(
-            self: Box<Self>,
-            _input: iced_futures::BoxStream<Event>,
-        ) -> iced_futures::BoxStream<Self::Output> {
-            Box::pin(unfold(self.rx, |mut rx| async move {
-                match rx.recv().await {
-                    Ok(yield_value) => {
-                        debug!(?yield_value, "received common command");
-                        Some((yield_value, rx))
-                    }
-                    Err(_) => {
-                        debug!("finish");
-                        None
-                    }
-                }
-            }))
+    pub async fn execute(
+        mut rx: Receiver<CommonAppCommand>,
+    ) -> (Option<CommonAppCommand>, Receiver<CommonAppCommand>) {
+        match rx.recv().await {
+            Ok(event) => {
+                debug!(?event, "received common command");
+                (Some(event), rx)
+            }
+            Err(_) => {
+                debug!("finish");
+                iced::futures::future::pending().await
+            }
         }
     }
 }

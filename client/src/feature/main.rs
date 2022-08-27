@@ -15,22 +15,19 @@
  */
 
 mod adb_server_recipe;
-mod color_key_style_sheet;
 
 use crate::data::resource::Resource;
-use crate::feature::main::adb_server_recipe::{AdbServerRecipe, AdbServerRecipeEvent};
-use crate::feature::main::color_key_style_sheet::ColorKeyStyleSheet;
+use crate::feature::main::adb_server_recipe::{adb_server, AdbServerRecipeEvent};
 use crate::model::send_event_key::SendEventKey;
-use crate::model::{AndroidDevice, KeyMap, Preferences};
+use crate::model::{AndroidDevice, ButtonStyle, KeyMap, Preferences};
 use crate::prelude::*;
 use iced::keyboard::{Event as KeyboardEvent, KeyCode};
-use iced::svg::Handle as SvgHandle;
-use iced::{
-    button, pick_list, Button, Checkbox, Color, Column, Command, Container, Element, Length,
-    PickList, Row, Space, Subscription, Svg, Text,
+use iced::subscription::events as native_events;
+use iced::widget::{
+    button, checkbox, column, container, pick_list, row, svg, svg::Handle as SvgHandle, text,
+    Column, Space,
 };
-use iced_native::subscription::events as native_events;
-use iced_native::Event as NativeEvent;
+use iced::{Command, Element, Event as NativeEvent, Length, Subscription};
 use std::io::BufRead;
 use std::sync::Arc;
 use tracing::{debug, info, warn};
@@ -54,7 +51,6 @@ pub struct MainView {
     adb_server_rx: tokio::sync::watch::Receiver<String>,
     adb_server_tx: tokio::sync::watch::Sender<String>,
     prefs: Arc<Preferences>,
-    widget_states: WidgetStates,
 }
 
 impl MainView {}
@@ -63,33 +59,6 @@ enum AdbConnectivity {
     Connected,
     Connecting,
     Disconnected,
-}
-
-#[derive(Debug, Default)]
-struct WidgetStates {
-    adb_devices_reload_button: button::State,
-    adb_devices_state: pick_list::State<Arc<AndroidDevice>>,
-    button_up: button::State,
-    button_down: button::State,
-    button_left: button::State,
-    button_right: button::State,
-    button_ok: button::State,
-    button_back: button::State,
-    button_home: button::State,
-    color_red_button: button::State,
-    color_green_button: button::State,
-    color_yellow_button: button::State,
-    color_blue_button: button::State,
-    numpad_0: button::State,
-    numpad_1: button::State,
-    numpad_2: button::State,
-    numpad_3: button::State,
-    numpad_4: button::State,
-    numpad_5: button::State,
-    numpad_6: button::State,
-    numpad_7: button::State,
-    numpad_8: button::State,
-    numpad_9: button::State,
 }
 
 impl MainView {
@@ -102,7 +71,6 @@ impl MainView {
             adb_server_rx,
             adb_server_tx,
             prefs,
-            widget_states: Default::default(),
         }
     }
 
@@ -261,11 +229,8 @@ impl MainView {
                 };
 
                 Subscription::batch(vec![
-                    Subscription::from_recipe(AdbServerRecipe {
-                        device,
-                        rx: self.adb_server_rx.clone(),
-                    })
-                    .map(MainViewCommand::AdbServerRecipeResult),
+                    adb_server(device, self.adb_server_rx.clone())
+                        .map(MainViewCommand::AdbServerRecipeResult),
                     native_events().map(MainViewCommand::Event),
                 ])
             }
@@ -273,295 +238,184 @@ impl MainView {
         }
     }
 
-    pub fn view(&mut self) -> Element<'_, MainViewCommand> {
+    // noinspection for Rust plugin v.176.
+    // noinspection RsTypeCheck
+    pub fn view<'a, Theme>(&'a self) -> Element<'a, MainViewCommand, iced::Renderer<Theme>>
+    where
+        Theme: button::StyleSheet<Style = ButtonStyle> + 'a,
+        Theme: checkbox::StyleSheet,
+        Theme: pick_list::StyleSheet,
+        Theme: text::StyleSheet,
+    {
         let button_width = Length::Units(90);
         let button_height = Length::Units(30);
 
-        Column::new()
-            .push(Text::new("ADB:"))
-            .push(
-                Row::new()
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.adb_devices_reload_button,
-                            Svg::new(SvgHandle::from_memory(
-                                Resource::get("refresh_black_24dp.svg")
-                                    .context("refresh_black_24dp.svg")
-                                    .unwrap()
-                                    .data,
-                            )),
-                        )
-                        .on_press(MainViewCommand::OnAdbDevicesReloadClicked),
-                    )
-                    .push(PickList::new(
-                        &mut self.widget_states.adb_devices_state,
-                        &self.adb_devices,
-                        self.adb_devices_selected.clone(),
-                        MainViewCommand::AdbDevicesSelected,
-                    ))
-                    .height(button_height),
-            )
-            .push(Space::new(Length::Shrink, Length::Units(4)))
-            .push(Checkbox::new(
+        let view: Column<MainViewCommand, iced::Renderer<Theme>> = column![
+            "ADB:",
+            row![
+                button(svg(SvgHandle::from_memory(
+                    Resource::get("refresh_black_24dp.svg")
+                        .context("refresh_black_24dp.svg")
+                        .unwrap()
+                        .data,
+                )))
+                .on_press(MainViewCommand::OnAdbDevicesReloadClicked),
+                row![pick_list(
+                    &self.adb_devices,
+                    self.adb_devices_selected.clone(),
+                    MainViewCommand::AdbDevicesSelected,
+                ),]
+                .height(button_height),
+            ],
+            Space::with_height(4.into()),
+            checkbox(
+                "connect",
                 match self.adb_connectivity {
                     AdbConnectivity::Connecting | AdbConnectivity::Disconnected => false,
                     AdbConnectivity::Connected => true,
                 },
-                "connect",
                 |_| MainViewCommand::OnAdbConnectClicked,
-            ))
-            .push(Text::new(match self.adb_connectivity {
+            ),
+            match self.adb_connectivity {
                 AdbConnectivity::Connecting => "status: connecting",
                 AdbConnectivity::Connected => "status: connected",
                 AdbConnectivity::Disconnected => "status: disconnected",
-            }))
-            .push(Space::new(Length::Shrink, Length::Units(16)))
-            .push(
-                Row::new()
-                    .spacing(4)
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.color_red_button,
-                            Space::new(Length::Fill, Length::Fill),
-                        )
-                        .width(Length::Units(70))
-                        .height(button_height)
-                        .style(ColorKeyStyleSheet(Color::new(1f32, 0f32, 0f32, 1f32)))
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorRed)),
-                    )
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.color_green_button,
-                            Space::new(Length::Fill, Length::Fill),
-                        )
-                        .width(Length::Units(70))
-                        .height(button_height)
-                        .style(ColorKeyStyleSheet(Color::new(0f32, 1f32, 0f32, 1f32)))
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorGreen)),
-                    )
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.color_blue_button,
-                            Space::new(Length::Fill, Length::Fill),
-                        )
-                        .width(Length::Units(70))
-                        .height(button_height)
-                        .style(ColorKeyStyleSheet(Color::new(0f32, 0f32, 1f32, 1f32)))
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorBlue)),
-                    )
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.color_yellow_button,
-                            Space::new(Length::Fill, Length::Fill),
-                        )
-                        .width(Length::Units(70))
-                        .height(button_height)
-                        .style(ColorKeyStyleSheet(Color::new(1f32, 1f32, 0f32, 1f32)))
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorYellow)),
-                    ),
-            )
-            .push(Space::new(Length::Shrink, Length::Units(8)))
-            .push(
-                Row::new()
-                    .spacing(4)
-                    .push(Space::new((90 + 8).into(), Length::Shrink))
-                    .push(
-                        Button::new(&mut self.widget_states.button_up, Text::new("Up (k)"))
-                            .width(button_width)
-                            .height(button_height)
-                            .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadUp)),
-                    ),
-            )
-            .push(Space::new(Length::Shrink, Length::Units(4)))
-            .push(
-                Row::new()
-                    .spacing(4)
-                    .push(Space::new(4.into(), Length::Shrink))
-                    .push(
-                        Button::new(&mut self.widget_states.button_left, Text::new("Left (h)"))
-                            .width(button_width)
-                            .height(button_height)
-                            .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadLeft)),
-                    )
-                    .push(
-                        Button::new(&mut self.widget_states.button_ok, Text::new("OK"))
-                            .width(button_width)
-                            .height(button_height)
-                            .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadOk)),
-                    )
-                    .push(
-                        Button::new(&mut self.widget_states.button_right, Text::new("Right (l)"))
-                            .width(button_width)
-                            .height(button_height)
-                            .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadRight)),
-                    ),
-            )
-            .push(Space::new(Length::Shrink, Length::Units(4)))
-            .push(
-                Row::new()
-                    .spacing(4)
-                    .push(Space::new((90 + 8).into(), Length::Shrink))
-                    .push(
-                        Button::new(&mut self.widget_states.button_down, Text::new("Down (j)"))
-                            .width(button_width)
-                            .height(button_height)
-                            .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadDown)),
-                    )
-                    .push(Space::new(button_width, button_height)),
-            )
-            .push(Space::new(Length::Shrink, Length::Units(8)))
-            .push(
-                Row::new()
-                    .spacing(4)
-                    .push(Space::new(4.into(), Length::Shrink))
-                    .push(
-                        Button::new(&mut self.widget_states.button_back, Text::new("Back"))
-                            .width(button_width)
-                            .height(button_height)
-                            .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Back)),
-                    )
-                    .push(
-                        Button::new(&mut self.widget_states.button_home, Text::new("Home"))
-                            .width(button_width)
-                            .height(button_height)
-                            .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Home)),
-                    ),
-            )
-            .push(Space::new(Length::Shrink, Length::Units(8)))
-            .push(
-                Row::new()
-                    .spacing(4)
-                    .push(Space::new(4.into(), Length::Shrink))
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.numpad_1,
-                            Container::new(Text::new("1"))
-                                .width(Length::Fill)
-                                .center_x(),
-                        )
-                        .width(button_width)
-                        .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num1)),
-                    )
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.numpad_2,
-                            Container::new(Text::new("2"))
-                                .width(Length::Fill)
-                                .center_x(),
-                        )
-                        .width(button_width)
-                        .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num2)),
-                    )
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.numpad_3,
-                            Container::new(Text::new("3"))
-                                .width(Length::Fill)
-                                .center_x(),
-                        )
-                        .width(button_width)
-                        .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num3)),
-                    ),
-            )
-            .push(Space::new(Length::Shrink, Length::Units(4)))
-            .push(
-                Row::new()
-                    .spacing(4)
-                    .push(Space::new(4.into(), Length::Shrink))
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.numpad_4,
-                            Container::new(Text::new("4"))
-                                .width(Length::Fill)
-                                .center_x(),
-                        )
-                        .width(button_width)
-                        .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num4)),
-                    )
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.numpad_5,
-                            Container::new(Text::new("5"))
-                                .width(Length::Fill)
-                                .center_x(),
-                        )
-                        .width(button_width)
-                        .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num5)),
-                    )
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.numpad_6,
-                            Container::new(Text::new("6"))
-                                .width(Length::Fill)
-                                .center_x(),
-                        )
-                        .width(button_width)
-                        .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num6)),
-                    ),
-            )
-            .push(Space::new(Length::Shrink, Length::Units(4)))
-            .push(
-                Row::new()
-                    .spacing(4)
-                    .push(Space::new(4.into(), Length::Shrink))
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.numpad_7,
-                            Container::new(Text::new("7"))
-                                .width(Length::Fill)
-                                .center_x(),
-                        )
-                        .width(button_width)
-                        .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num7)),
-                    )
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.numpad_8,
-                            Container::new(Text::new("8"))
-                                .width(Length::Fill)
-                                .center_x(),
-                        )
-                        .width(button_width)
-                        .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num8)),
-                    )
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.numpad_9,
-                            Container::new(Text::new("9"))
-                                .width(Length::Fill)
-                                .center_x(),
-                        )
-                        .width(button_width)
-                        .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num9)),
-                    ),
-            )
-            .push(Space::new(Length::Shrink, Length::Units(4)))
-            .push(
-                Row::new()
-                    .spacing(4)
-                    .push(Space::new((90 + 8).into(), Length::Shrink))
-                    .push(
-                        Button::new(
-                            &mut self.widget_states.numpad_0,
-                            Container::new(Text::new("0"))
-                                .width(Length::Fill)
-                                .center_x(),
-                        )
-                        .width(button_width)
-                        .height(button_height)
-                        .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num0)),
-                    ),
-            )
-            .into()
+            },
+            Space::with_height(16.into()),
+            row![
+                button(Space::new(Length::Fill, Length::Fill))
+                    .width(70.into())
+                    .height(button_height)
+                    .style(ButtonStyle::ColorKeyRed)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorRed)),
+                button(Space::new(Length::Fill, Length::Fill))
+                    .width(70.into())
+                    .height(button_height)
+                    .style(ButtonStyle::ColorKeyGreen)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorGreen)),
+                button(Space::new(Length::Fill, Length::Fill))
+                    .width(70.into())
+                    .height(button_height)
+                    .style(ButtonStyle::ColorKeyBlue)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorBlue)),
+                button(Space::new(Length::Fill, Length::Fill))
+                    .width(70.into())
+                    .height(button_height)
+                    .style(ButtonStyle::ColorKeyYellow)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorYellow)),
+            ]
+            .spacing(4),
+            Space::with_height(8.into()),
+            row![
+                Space::with_width((90 + 8).into()),
+                button("Up (k)")
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadUp)),
+            ]
+            .spacing(4),
+            Space::with_height(4.into()),
+            row![
+                Space::with_width(4.into()),
+                button("Left (h)")
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadLeft)),
+                button("OK")
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadOk)),
+                button("Right (l)")
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadRight)),
+            ]
+            .spacing(4),
+            Space::with_height(4.into()),
+            row![
+                Space::with_width((90 + 8).into()),
+                button("Down (j)")
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadDown)),
+                Space::new(button_width, button_height),
+            ]
+            .spacing(4),
+            Space::with_height(8.into()),
+            row![
+                Space::with_width(4.into()),
+                button("Back")
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Back)),
+                button("Home")
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Home)),
+            ]
+            .spacing(4),
+            Space::with_height(8.into()),
+            row![
+                Space::with_width(4.into()),
+                button(container("1").width(Length::Fill).center_x())
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num1)),
+                button(container("2").width(Length::Fill).center_x())
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num2)),
+                button(container("3").width(Length::Fill).center_x())
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num3)),
+            ]
+            .spacing(4),
+            Space::with_height(4.into()),
+            row![
+                Space::with_width(4.into()),
+                button(container("4").width(Length::Fill).center_x())
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num4)),
+                button(container("5").width(Length::Fill).center_x())
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num5)),
+                button(container("6").width(Length::Fill).center_x())
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num6)),
+            ]
+            .spacing(4),
+            Space::with_height(4.into()),
+            row![
+                Space::with_width(4.into()),
+                button(container("7").width(Length::Fill).center_x())
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num7)),
+                button(container("8").width(Length::Fill).center_x())
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num8)),
+                button(container("9").width(Length::Fill).center_x())
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num9)),
+            ]
+            .spacing(4),
+            Space::with_height(4.into()),
+            row![
+                Space::with_width((90 + 8).into()),
+                button(container("0").width(Length::Fill).center_x())
+                    .width(button_width)
+                    .height(button_height)
+                    .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num0)),
+            ]
+            .spacing(4),
+        ];
+        view.into()
     }
 
     pub fn view_size() -> (u32, u32) {
