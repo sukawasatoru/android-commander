@@ -254,19 +254,19 @@ impl MainView {
             "ADB:",
             row![
                 button(svg(SvgHandle::from_memory(
-                    Resource::get("refresh_black_24dp.svg")
-                        .context("refresh_black_24dp.svg")
+                    Resource::get("arrow-path.svg")
+                        .context("arrow-path.svg")
                         .unwrap()
                         .data,
                 )))
                 .on_press(MainViewCommand::OnAdbDevicesReloadClicked),
-                row![pick_list(
+                pick_list(
                     &self.adb_devices,
                     self.adb_devices_selected.clone(),
                     MainViewCommand::AdbDevicesSelected,
-                ),]
-                .height(button_height),
-            ],
+                ),
+            ]
+            .height(button_height),
             Space::with_height(4.into()),
             checkbox(
                 "connect",
