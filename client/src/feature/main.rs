@@ -425,6 +425,16 @@ impl MainView {
 
 fn create_send_event_key(key: KeyCode) -> Option<SendEventKey> {
     match key {
+        KeyCode::Key1 => Some(SendEventKey::Num1),
+        KeyCode::Key2 => Some(SendEventKey::Num2),
+        KeyCode::Key3 => Some(SendEventKey::Num3),
+        KeyCode::Key4 => Some(SendEventKey::Num4),
+        KeyCode::Key5 => Some(SendEventKey::Num5),
+        KeyCode::Key6 => Some(SendEventKey::Num6),
+        KeyCode::Key7 => Some(SendEventKey::Num7),
+        KeyCode::Key8 => Some(SendEventKey::Num8),
+        KeyCode::Key9 => Some(SendEventKey::Num9),
+        KeyCode::Key0 => Some(SendEventKey::Num0),
         KeyCode::J => Some(SendEventKey::DpadDown),
         KeyCode::K => Some(SendEventKey::DpadUp),
         KeyCode::H => Some(SendEventKey::DpadLeft),
