@@ -14,22 +14,25 @@
  * limitations under the License.
  */
 
+#[allow(unused_imports)]
+use android_commander::data::preferences_repository::MockPreferencesRepository;
 use android_commander::data::preferences_repository::{
-    MockPreferencesRepository, PreferencesRepository, PreferencesRepositoryImpl,
+    PreferencesRepository, PreferencesRepositoryImpl,
 };
 use android_commander::feature::main::{MainView, MainViewCommand};
 use android_commander::feature::migrate::migrate;
-use android_commander::feature::settings::{SettingsView, SettingsViewCommand};
-use android_commander::model::app_command::AppCommand as CommonAppCommand;
+use android_commander::feature::settings::{
+    SettingsView, SettingsViewCommand, ViewState as SettingsViewState,
+};
+use android_commander::model::XMessage;
 use android_commander::model::{AppTheme, Preferences};
 use android_commander::prelude::*;
 use iced::widget::{button, column, container, row, Column, Space};
 use iced::window::{resize, Settings as WindowSettings};
 use iced::{executor, Application, Command, Element, Length, Settings, Subscription};
-use std::convert::Infallible;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::broadcast::{channel, Sender};
+use tokio::sync::Mutex;
 use tracing::{info, warn};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -43,57 +46,9 @@ enum AppCommand {
     ActiveView(ActiveView),
     MainViewCommand(MainViewCommand),
     OnInit,
-    OnNewPrefs(Option<Arc<Preferences>>),
-    OnPrefsFileUpdated,
+    OnXMessage(XMessage),
     SettingsViewCommand(SettingsViewCommand),
-}
-
-pub trait AppModule {
-    type PrefsRepo: PreferencesRepository;
-
-    fn prefs_repo(&self) -> Arc<Self::PrefsRepo>;
-}
-
-pub struct AppModuleImpl {
-    prefs_repo: Arc<PreferencesRepositoryImpl>,
-}
-
-impl AppModuleImpl {
-    #[allow(dead_code)]
-    fn new(prefs_repo: PreferencesRepositoryImpl) -> Self {
-        Self {
-            prefs_repo: Arc::new(prefs_repo),
-        }
-    }
-}
-
-impl AppModule for AppModuleImpl {
-    type PrefsRepo = PreferencesRepositoryImpl;
-
-    fn prefs_repo(&self) -> Arc<Self::PrefsRepo> {
-        self.prefs_repo.clone()
-    }
-}
-
-pub struct MockAppModule {
-    prefs_repo: Arc<MockPreferencesRepository>,
-}
-
-impl MockAppModule {
-    #[allow(dead_code)]
-    fn new() -> Self {
-        Self {
-            prefs_repo: Arc::new(MockPreferencesRepository),
-        }
-    }
-}
-
-impl AppModule for MockAppModule {
-    type PrefsRepo = MockPreferencesRepository;
-
-    fn prefs_repo(&self) -> Arc<Self::PrefsRepo> {
-        self.prefs_repo.clone()
-    }
+    Sink,
 }
 
 #[derive(Default)]
@@ -103,11 +58,29 @@ struct AppFlags {
 
 struct App {
     active_view: ActiveView,
-    app_module: AppModuleImpl,
-    // app_module: MockAppModule,
-    common_command_tx: Sender<CommonAppCommand>,
+
+    prefs_repo: Arc<Mutex<PreferencesRepositoryImpl>>,
+    // prefs_repo: Arc<Mutex<MockPreferencesRepository>>,
+    state_view_settings: SettingsViewState,
+    theme: AppTheme,
     view_main: MainView,
-    view_settings: SettingsView,
+}
+
+impl SettingsView for App {
+    type PrefsRepo = PreferencesRepositoryImpl;
+    // type PrefsRepo = MockPreferencesRepository;
+
+    fn get_prefs_repo(&self) -> Arc<Mutex<Self::PrefsRepo>> {
+        self.prefs_repo.clone()
+    }
+
+    fn get_state(&self) -> &SettingsViewState {
+        &self.state_view_settings
+    }
+
+    fn get_state_mut(&mut self) -> &mut SettingsViewState {
+        &mut self.state_view_settings
+    }
 }
 
 impl Application for App {
@@ -118,23 +91,20 @@ impl Application for App {
 
     fn new(flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let config_file_path = flags.config_dir.join("preferences.toml");
-        let prefs = Arc::new(Default::default());
-        let (tx, _) = channel(1);
+        let prefs = Arc::new(Preferences::default());
+        let theme = prefs.theme;
         (
             Self {
                 active_view: ActiveView::Main,
-                app_module: AppModuleImpl::new(PreferencesRepositoryImpl::new(
+                prefs_repo: Arc::new(Mutex::new(PreferencesRepositoryImpl::new(
                     config_file_path.to_owned(),
-                )),
-                // app_module: MockAppModule::new(),
-                common_command_tx: tx.clone(),
+                ))),
+                theme,
+                state_view_settings: SettingsViewState::new(config_file_path, theme),
                 view_main: MainView::new(prefs),
-                view_settings: SettingsView::new(tx, config_file_path),
             },
             Command::batch([
-                Command::perform(iced::futures::future::ok::<(), Infallible>(()), |_| {
-                    AppCommand::OnInit
-                }),
+                Command::perform(async {}, |_| AppCommand::OnInit),
                 MainView::init_command().map(AppCommand::MainViewCommand),
             ]),
         )
@@ -152,7 +122,7 @@ impl Application for App {
 
                 let (w, h) = match self.active_view {
                     ActiveView::Main => MainView::view_size(),
-                    ActiveView::Settings => self.view_settings.view_size(),
+                    ActiveView::Settings => <Self as SettingsView>::view_size(self),
                 };
 
                 resize(w, h)
@@ -162,15 +132,39 @@ impl Application for App {
                 .update(command)
                 .map(AppCommand::MainViewCommand),
             AppCommand::OnInit => self.load_prefs_command(),
-            AppCommand::OnNewPrefs(prefs) => self
-                .view_main
-                .update(MainViewCommand::OnNewPrefs(prefs))
-                .map(AppCommand::MainViewCommand),
-            AppCommand::OnPrefsFileUpdated => self.load_prefs_command(),
-            AppCommand::SettingsViewCommand(data) => self
-                .view_settings
-                .update(data)
-                .map(AppCommand::SettingsViewCommand),
+            AppCommand::OnXMessage(x_message) => {
+                let mut commands = vec![];
+                match x_message {
+                    XMessage::OnNewPreferences(ref prefs) => {
+                        self.theme = prefs.theme;
+                    }
+                    XMessage::OnPrefsFileUpdated => {
+                        commands.push(self.load_prefs_command());
+                    }
+                }
+                commands.push(
+                    self.view_main
+                        .update(MainViewCommand::OnXMessage(x_message.clone()))
+                        .map(AppCommand::MainViewCommand),
+                );
+                commands.push(
+                    <Self as SettingsView>::update(
+                        self,
+                        SettingsViewCommand::OnXMessage(x_message),
+                    )
+                    .map(AppCommand::SettingsViewCommand),
+                );
+                Command::batch(commands)
+            }
+            AppCommand::SettingsViewCommand(data) => <Self as SettingsView>::update(self, data)
+                .map(|command| {
+                    if let SettingsViewCommand::SendXMessage(data) = command {
+                        AppCommand::OnXMessage(data)
+                    } else {
+                        AppCommand::SettingsViewCommand(command)
+                    }
+                }),
+            AppCommand::Sink => Command::none(),
         }
     }
 
@@ -199,9 +193,7 @@ impl Application for App {
             ),
             ActiveView::Settings => view.push(
                 container(
-                    self.view_settings
-                        .view()
-                        .map(Self::Message::SettingsViewCommand),
+                    <Self as SettingsView>::view(self).map(Self::Message::SettingsViewCommand),
                 )
                 .padding(4),
             ),
@@ -210,26 +202,24 @@ impl Application for App {
         view.into()
     }
 
+    fn theme(&self) -> Self::Theme {
+        self.theme
+    }
+
     fn subscription(&self) -> Subscription<Self::Message> {
-        Subscription::batch([
-            main_recipe::common_command_receiver(self.common_command_tx.subscribe()).map(
-                |data: CommonAppCommand| match data {
-                    CommonAppCommand::OnPrefsFileUpdated => AppCommand::OnPrefsFileUpdated,
-                },
-            ),
-            self.view_main
-                .subscription()
-                .map(AppCommand::MainViewCommand),
-        ])
+        Subscription::batch([self
+            .view_main
+            .subscription()
+            .map(AppCommand::MainViewCommand)])
     }
 }
 
 impl App {
     fn load_prefs_command(&self) -> Command<AppCommand> {
-        let repo = self.app_module.prefs_repo();
+        let repo = self.prefs_repo.clone();
         Command::perform(
             async move {
-                match repo.load().await {
+                match repo.lock().await.load().await {
                     Ok(data) => Some(Arc::new(data)),
                     Err(e) => {
                         warn!(?e, "failed to load key map");
@@ -237,42 +227,11 @@ impl App {
                     }
                 }
             },
-            AppCommand::OnNewPrefs,
+            |data| match data {
+                Some(data) => AppCommand::OnXMessage(XMessage::OnNewPreferences(data)),
+                None => AppCommand::Sink,
+            },
         )
-    }
-}
-
-mod main_recipe {
-    use android_commander::model::app_command::AppCommand as CommonAppCommand;
-    use iced::subscription::{unfold, Subscription};
-    use tokio::sync::broadcast::Receiver;
-    use tracing::debug;
-
-    struct CommonCommandReceiverType;
-
-    pub fn common_command_receiver(
-        rx: Receiver<CommonAppCommand>,
-    ) -> Subscription<CommonAppCommand> {
-        unfold(
-            std::any::TypeId::of::<CommonCommandReceiverType>(),
-            rx,
-            execute,
-        )
-    }
-
-    pub async fn execute(
-        mut rx: Receiver<CommonAppCommand>,
-    ) -> (Option<CommonAppCommand>, Receiver<CommonAppCommand>) {
-        match rx.recv().await {
-            Ok(event) => {
-                debug!(?event, "received common command");
-                (Some(event), rx)
-            }
-            Err(_) => {
-                debug!("finish");
-                iced::futures::future::pending().await
-            }
-        }
     }
 }
 

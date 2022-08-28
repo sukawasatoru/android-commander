@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
+use crate::model::AppTheme;
+
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct Preferences {
     pub key_map: KeyMap,
+    pub theme: AppTheme,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

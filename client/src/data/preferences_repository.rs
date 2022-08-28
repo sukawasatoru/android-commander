@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::model::{KeyMap, Preferences};
+use crate::model::{AppTheme, FileVersion, KeyMap, Preferences};
 use crate::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -22,8 +22,9 @@ use tokio::fs::{create_dir_all, File};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 
 #[async_trait::async_trait]
-pub trait PreferencesRepository {
+pub trait PreferencesRepository: Send + Sync {
     async fn load(&self) -> Fallible<Preferences>;
+    async fn save(&self, data: Preferences) -> Fallible<()>;
 }
 
 pub struct PreferencesRepositoryImpl {
@@ -80,6 +81,16 @@ impl PreferencesRepository for PreferencesRepositoryImpl {
             .with_context(|| format!("failed to parse preferences: {}", prefs_string))?
             .into())
     }
+
+    async fn save(&self, data: Preferences) -> Fallible<()> {
+        self.prepare().await?;
+
+        let mut buf = BufWriter::new(File::create(&self.config_file_path).await?);
+        buf.write_all(toml::to_string(&PrefsDto::from(data))?.as_bytes())
+            .await?;
+        buf.flush().await?;
+        Ok(())
+    }
 }
 
 pub struct MockPreferencesRepository;
@@ -89,17 +100,25 @@ impl PreferencesRepository for MockPreferencesRepository {
     async fn load(&self) -> Fallible<Preferences> {
         Ok(Default::default())
     }
+
+    async fn save(&self, _data: Preferences) -> Fallible<()> {
+        Ok(())
+    }
 }
 
 #[derive(Deserialize, Eq, PartialEq, Serialize)]
 struct PrefsDto {
-    key_map: PrefsKeyMap,
+    version: FileVersion,
+    theme: Option<ThemeDto>,
+    key_map: KeyMapDto,
 }
 
 impl From<Preferences> for PrefsDto {
     fn from(value: Preferences) -> Self {
         Self {
-            key_map: PrefsKeyMap::from(value.key_map),
+            version: env!("CARGO_PKG_VERSION").parse().unwrap(),
+            theme: Some(ThemeDto::from(value.theme)),
+            key_map: KeyMapDto::from(value.key_map),
         }
     }
 }
@@ -108,12 +127,13 @@ impl From<PrefsDto> for Preferences {
     fn from(value: PrefsDto) -> Self {
         Self {
             key_map: KeyMap::from(value.key_map),
+            theme: value.theme.map(AppTheme::from).unwrap_or_default(),
         }
     }
 }
 
 #[derive(Deserialize, Eq, PartialEq, Serialize)]
-struct PrefsKeyMap {
+struct KeyMapDto {
     color_red: String,
     color_green: String,
     color_blue: String,
@@ -137,8 +157,8 @@ struct PrefsKeyMap {
     home: String,
 }
 
-impl From<PrefsKeyMap> for KeyMap {
-    fn from(value: PrefsKeyMap) -> Self {
+impl From<KeyMapDto> for KeyMap {
+    fn from(value: KeyMapDto) -> Self {
         Self {
             back: value.back,
             color_red: value.color_red,
@@ -165,7 +185,7 @@ impl From<PrefsKeyMap> for KeyMap {
     }
 }
 
-impl From<KeyMap> for PrefsKeyMap {
+impl From<KeyMap> for KeyMapDto {
     fn from(value: KeyMap) -> Self {
         Self {
             back: value.back,
@@ -189,6 +209,30 @@ impl From<KeyMap> for PrefsKeyMap {
             num_8: value.num_8,
             num_9: value.num_9,
             home: value.home,
+        }
+    }
+}
+
+#[derive(Deserialize, Eq, Serialize, PartialEq)]
+enum ThemeDto {
+    Light,
+    Dark,
+}
+
+impl From<ThemeDto> for AppTheme {
+    fn from(value: ThemeDto) -> Self {
+        match value {
+            ThemeDto::Light => AppTheme::Light,
+            ThemeDto::Dark => AppTheme::Dark,
+        }
+    }
+}
+
+impl From<AppTheme> for ThemeDto {
+    fn from(value: AppTheme) -> Self {
+        match value {
+            AppTheme::Light => ThemeDto::Light,
+            AppTheme::Dark => ThemeDto::Dark,
         }
     }
 }

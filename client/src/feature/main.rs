@@ -19,7 +19,7 @@ mod adb_server_recipe;
 use crate::data::resource::Resource;
 use crate::feature::main::adb_server_recipe::{adb_server, AdbServerRecipeEvent};
 use crate::model::send_event_key::SendEventKey;
-use crate::model::{AndroidDevice, ButtonStyle, KeyMap, Preferences};
+use crate::model::{AndroidDevice, ButtonStyle, KeyMap, Preferences, XMessage};
 use crate::prelude::*;
 use iced::keyboard::{Event as KeyboardEvent, KeyCode};
 use iced::subscription::events as native_events;
@@ -41,6 +41,7 @@ pub enum MainViewCommand {
     OnAdbConnectClicked,
     OnAdbDevicesReloadClicked,
     OnNewPrefs(Option<Arc<Preferences>>),
+    OnXMessage(XMessage),
     RequestSendEvent(SendEventKey),
 }
 
@@ -52,8 +53,6 @@ pub struct MainView {
     adb_server_tx: tokio::sync::watch::Sender<String>,
     prefs: Arc<Preferences>,
 }
-
-impl MainView {}
 
 enum AdbConnectivity {
     Connected,
@@ -145,9 +144,14 @@ impl MainView {
                         }
                         _ => (),
                     },
-                    // TODO: support long-press for button.
-                    NativeEvent::Mouse(_) => (),
-                    _ => (),
+                    NativeEvent::Mouse(_) => {
+                        // TODO: support long-press for button.
+                    }
+                    NativeEvent::Window(_)
+                    | NativeEvent::Touch(_)
+                    | NativeEvent::PlatformSpecific(_) => {
+                        // do nothing.
+                    }
                 }
             }
             MainViewCommand::InvokeDevicesResult(devices) => {
@@ -212,6 +216,9 @@ impl MainView {
                 if let Some(data) = prefs {
                     self.prefs = data;
                 }
+            }
+            MainViewCommand::OnXMessage(_) => {
+                // do nothing.
             }
         }
         Command::none()

@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
+use crate::model::Preferences;
+use std::sync::Arc;
+
 #[derive(Clone, Debug)]
-pub enum AppCommand {
+pub enum XMessage {
+    OnNewPreferences(Arc<Preferences>),
     OnPrefsFileUpdated,
 }

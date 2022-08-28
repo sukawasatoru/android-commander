@@ -14,16 +14,17 @@
  * limitations under the License.
  */
 
+pub use preferences::{KeyMap, Preferences};
 pub use theme::{AppTheme, ButtonStyle};
+pub use x_message::XMessage;
 
-pub mod app_command;
 mod file_version;
 mod preferences;
 pub mod send_event_key;
 pub mod theme;
+mod x_message;
 
 pub use file_version::FileVersion;
-pub use preferences::{KeyMap, Preferences};
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Eq, PartialEq)]
