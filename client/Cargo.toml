@@ -12,7 +12,7 @@ dotenv = "=0.15.0"
 iced = { git = "https://github.com/hecrj/iced.git", rev = "4158a9a0cdde28eeed49c24769497ddd86b6cb9a", features = ["svg", "tokio"] }
 # for iced::widget::menu
 iced_style = { git = "https://github.com/hecrj/iced.git", rev = "4158a9a0cdde28eeed49c24769497ddd86b6cb9a" }
-rust-embed = "=6.4.0"
+rust-embed = "=6.4.1"
 serde = { version = "=1.0.144", features = ["derive"] }
 tempfile = "=3.3.0"
 thiserror = "=1.0.32"
