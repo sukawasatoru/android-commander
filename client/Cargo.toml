@@ -13,7 +13,7 @@ iced = { git = "https://github.com/hecrj/iced.git", rev = "4158a9a0cdde28eeed49c
 # for iced::widget::menu
 iced_style = { git = "https://github.com/hecrj/iced.git", rev = "4158a9a0cdde28eeed49c24769497ddd86b6cb9a" }
 rust-embed = "=6.4.0"
-serde = { version = "=1.0.144", features = ["derive"] }
+serde = { version = "=1.0.145", features = ["derive"] }
 tempfile = "=3.3.0"
 thiserror = "=1.0.32"
 tokio = { version = "=1.20.1", features = ["fs", "io-std", "io-util", "macros", "sync"] }
