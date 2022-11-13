@@ -24,9 +24,10 @@ use android_commander::feature::migrate::migrate;
 use android_commander::feature::settings::{
     SettingsView, SettingsViewCommand, ViewState as SettingsViewState,
 };
+use android_commander::model::Preferences;
 use android_commander::model::XMessage;
-use android_commander::model::{AppTheme, Preferences};
 use android_commander::prelude::*;
+use iced::theme::Theme;
 use iced::widget::{button, column, container, row, Column, Space};
 use iced::window::{resize, Settings as WindowSettings};
 use iced::{executor, Application, Command, Element, Length, Settings, Subscription};
@@ -62,7 +63,7 @@ struct App {
     prefs_repo: Arc<Mutex<PreferencesRepositoryImpl>>,
     // prefs_repo: Arc<Mutex<MockPreferencesRepository>>,
     state_view_settings: SettingsViewState,
-    theme: AppTheme,
+    theme: Theme,
     view_main: MainView,
 }
 
@@ -86,20 +87,20 @@ impl SettingsView for App {
 impl Application for App {
     type Executor = executor::Default;
     type Message = AppCommand;
-    type Theme = AppTheme;
+    type Theme = Theme;
     type Flags = AppFlags;
 
     fn new(flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let config_file_path = flags.config_dir.join("preferences.toml");
         let prefs = Arc::new(Preferences::default());
-        let theme = prefs.theme;
+        let theme = Theme::from(&prefs.theme);
         (
             Self {
                 active_view: ActiveView::Main,
                 prefs_repo: Arc::new(Mutex::new(PreferencesRepositoryImpl::new(
                     config_file_path.to_owned(),
                 ))),
-                theme,
+                theme: theme.clone(),
                 state_view_settings: SettingsViewState::new(config_file_path, theme),
                 view_main: MainView::new(prefs),
             },
@@ -136,7 +137,7 @@ impl Application for App {
                 let mut commands = vec![];
                 match x_message {
                     XMessage::OnNewPreferences(ref prefs) => {
-                        self.theme = prefs.theme;
+                        self.theme = (&prefs.theme).into();
                     }
                     XMessage::OnPrefsFileUpdated => {
                         commands.push(self.load_prefs_command());
@@ -168,8 +169,6 @@ impl Application for App {
         }
     }
 
-    // noinspection for Rust plugin v.176.
-    // noinspection RsTypeCheck
     fn view(&self) -> Element<'_, Self::Message, iced::Renderer<Self::Theme>> {
         let button_width = Length::Units(90);
         let button_height = Length::Units(30);
@@ -178,10 +177,12 @@ impl Application for App {
                 button("Main")
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(AppCommand::ActiveView(ActiveView::Main)),
                 button("Settings")
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(AppCommand::ActiveView(ActiveView::Settings)),
             ],
             Space::with_height(12.into()),
@@ -203,7 +204,7 @@ impl Application for App {
     }
 
     fn theme(&self) -> Self::Theme {
-        self.theme
+        self.theme.clone()
     }
 
     fn subscription(&self) -> Subscription<Self::Message> {

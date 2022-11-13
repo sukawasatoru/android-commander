@@ -15,7 +15,7 @@
  */
 
 pub use preferences::{KeyMap, Preferences};
-pub use theme::{AppTheme, ButtonStyle};
+pub use theme::{AppTheme, ColorKeyButtonStyle};
 pub use x_message::XMessage;
 
 mod file_version;

@@ -19,13 +19,12 @@ mod adb_server_recipe;
 use crate::data::resource::Resource;
 use crate::feature::main::adb_server_recipe::{adb_server, AdbServerRecipeEvent};
 use crate::model::send_event_key::SendEventKey;
-use crate::model::{AndroidDevice, ButtonStyle, KeyMap, Preferences, XMessage};
+use crate::model::{AndroidDevice, ColorKeyButtonStyle, KeyMap, Preferences, XMessage};
 use crate::prelude::*;
 use iced::keyboard::{Event as KeyboardEvent, KeyCode};
 use iced::subscription::events as native_events;
 use iced::widget::{
-    button, checkbox, column, container, pick_list, row, svg, svg::Handle as SvgHandle, text,
-    Column, Space,
+    button, checkbox, column, container, pick_list, row, svg, svg::Handle as SvgHandle, Space,
 };
 use iced::{Command, Element, Event as NativeEvent, Length, Subscription};
 use std::io::BufRead;
@@ -147,9 +146,7 @@ impl MainView {
                     NativeEvent::Mouse(_) => {
                         // TODO: support long-press for button.
                     }
-                    NativeEvent::Window(_)
-                    | NativeEvent::Touch(_)
-                    | NativeEvent::PlatformSpecific(_) => {
+                    NativeEvent::Window(_) | NativeEvent::Touch(_) => {
                         // do nothing.
                     }
                 }
@@ -245,19 +242,11 @@ impl MainView {
         }
     }
 
-    // noinspection for Rust plugin v.176.
-    // noinspection RsTypeCheck
-    pub fn view<'a, Theme>(&'a self) -> Element<'a, MainViewCommand, iced::Renderer<Theme>>
-    where
-        Theme: button::StyleSheet<Style = ButtonStyle> + 'a,
-        Theme: checkbox::StyleSheet,
-        Theme: pick_list::StyleSheet,
-        Theme: text::StyleSheet,
-    {
+    pub fn view(&self) -> Element<MainViewCommand> {
         let button_width = Length::Units(90);
         let button_height = Length::Units(30);
 
-        let view: Column<MainViewCommand, iced::Renderer<Theme>> = column![
+        column![
             "ADB:",
             row![
                 button(svg(SvgHandle::from_memory(
@@ -266,6 +255,7 @@ impl MainView {
                         .unwrap()
                         .data,
                 )))
+                .style(iced::theme::Button::Secondary)
                 .on_press(MainViewCommand::OnAdbDevicesReloadClicked),
                 pick_list(
                     &self.adb_devices,
@@ -293,22 +283,30 @@ impl MainView {
                 button(Space::new(Length::Fill, Length::Fill))
                     .width(70.into())
                     .height(button_height)
-                    .style(ButtonStyle::ColorKeyRed)
+                    .style(iced::theme::Button::Custom(Box::new(
+                        ColorKeyButtonStyle::ColorKeyRed
+                    )))
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorRed)),
                 button(Space::new(Length::Fill, Length::Fill))
                     .width(70.into())
                     .height(button_height)
-                    .style(ButtonStyle::ColorKeyGreen)
+                    .style(iced::theme::Button::Custom(Box::new(
+                        ColorKeyButtonStyle::ColorKeyGreen
+                    )))
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorGreen)),
                 button(Space::new(Length::Fill, Length::Fill))
                     .width(70.into())
                     .height(button_height)
-                    .style(ButtonStyle::ColorKeyBlue)
+                    .style(iced::theme::Button::Custom(Box::new(
+                        ColorKeyButtonStyle::ColorKeyBlue
+                    )))
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorBlue)),
                 button(Space::new(Length::Fill, Length::Fill))
                     .width(70.into())
                     .height(button_height)
-                    .style(ButtonStyle::ColorKeyYellow)
+                    .style(iced::theme::Button::Custom(Box::new(
+                        ColorKeyButtonStyle::ColorKeyYellow
+                    )))
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorYellow)),
             ]
             .spacing(4),
@@ -318,6 +316,7 @@ impl MainView {
                 button("Up (k)")
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadUp)),
             ]
             .spacing(4),
@@ -327,14 +326,17 @@ impl MainView {
                 button("Left (h)")
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadLeft)),
                 button("OK")
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadOk)),
                 button("Right (l)")
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadRight)),
             ]
             .spacing(4),
@@ -344,6 +346,7 @@ impl MainView {
                 button("Down (j)")
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadDown)),
                 Space::new(button_width, button_height),
             ]
@@ -354,10 +357,12 @@ impl MainView {
                 button("Back")
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Back)),
                 button("Home")
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Home)),
             ]
             .spacing(4),
@@ -367,14 +372,17 @@ impl MainView {
                 button(container("1").width(Length::Fill).center_x())
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num1)),
                 button(container("2").width(Length::Fill).center_x())
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num2)),
                 button(container("3").width(Length::Fill).center_x())
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num3)),
             ]
             .spacing(4),
@@ -384,14 +392,17 @@ impl MainView {
                 button(container("4").width(Length::Fill).center_x())
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num4)),
                 button(container("5").width(Length::Fill).center_x())
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num5)),
                 button(container("6").width(Length::Fill).center_x())
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num6)),
             ]
             .spacing(4),
@@ -401,14 +412,17 @@ impl MainView {
                 button(container("7").width(Length::Fill).center_x())
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num7)),
                 button(container("8").width(Length::Fill).center_x())
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num8)),
                 button(container("9").width(Length::Fill).center_x())
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num9)),
             ]
             .spacing(4),
@@ -418,11 +432,12 @@ impl MainView {
                 button(container("0").width(Length::Fill).center_x())
                     .width(button_width)
                     .height(button_height)
+                    .style(iced::theme::Button::Secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num0)),
             ]
             .spacing(4),
-        ];
-        view.into()
+        ]
+        .into()
     }
 
     pub fn view_size() -> (u32, u32) {

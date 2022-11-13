@@ -15,10 +15,10 @@
  */
 
 use crate::data::preferences_repository::PreferencesRepository;
-use crate::model::ButtonStyle;
 use crate::model::{AppTheme, XMessage};
 use crate::prelude::Fallible;
-use iced::widget::{button, column, pick_list, row, text, Column};
+use iced::theme::Theme;
+use iced::widget::{button, column, pick_list, row};
 use iced::{Command, Element};
 use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
@@ -28,11 +28,11 @@ use tracing::{debug, warn};
 
 pub struct ViewState {
     config_file_path: PathBuf,
-    theme: AppTheme,
+    theme: Theme,
 }
 
 impl ViewState {
-    pub fn new(config_file_path: PathBuf, theme: AppTheme) -> Self {
+    pub fn new(config_file_path: PathBuf, theme: Theme) -> Self {
         Self {
             config_file_path,
             theme,
@@ -84,7 +84,7 @@ pub trait SettingsView {
                     // do nothing.
                 }
                 XMessage::OnNewPreferences(prefs) => {
-                    self.get_state_mut().theme = prefs.theme;
+                    self.get_state_mut().theme = (&prefs.theme).into();
                 }
             },
             SettingsViewCommand::SendXMessage(_) | SettingsViewCommand::Sink => {
@@ -95,34 +95,34 @@ pub trait SettingsView {
         Command::none()
     }
 
-    fn view<'a, Theme>(&'a self) -> Element<'a, SettingsViewCommand, iced::Renderer<Theme>>
-    where
-        Theme: button::StyleSheet<Style = ButtonStyle> + 'a,
-        Theme: pick_list::StyleSheet,
-        Theme: text::StyleSheet,
-    {
-        let view: Column<SettingsViewCommand, iced::Renderer<Theme>> = column![
-            button("Reload preferences").width(292.into()).on_press(
-                SettingsViewCommand::SendXMessage(XMessage::OnPrefsFileUpdated)
-            ),
+    fn view(&self) -> Element<SettingsViewCommand> {
+        column![
+            button("Reload preferences")
+                .width(292.into())
+                .style(iced::theme::Button::Secondary)
+                .on_press(SettingsViewCommand::SendXMessage(
+                    XMessage::OnPrefsFileUpdated
+                )),
             button("Open preferences directory")
                 .width(292.into())
+                .style(iced::theme::Button::Secondary)
                 .on_press(SettingsViewCommand::OnOpenPrefsDirButtonClicked),
             button("Open KeyCode references")
                 .width(292.into())
+                .style(iced::theme::Button::Secondary)
                 .on_press(SettingsViewCommand::OnOpenKeycodeReferencesButtonClicked),
             row![
                 "Theme: ",
                 pick_list(
                     &[AppTheme::Light, AppTheme::Dark][..],
-                    Some(self.get_state().theme),
+                    Some((&self.get_state().theme).into()),
                     SettingsViewCommand::OnThemeSelected,
                 ),
             ]
             .align_items(iced::alignment::Alignment::Center),
         ]
-        .spacing(8);
-        view.into()
+        .spacing(8)
+        .into()
     }
 
     fn view_size(&self) -> (u32, u32) {
