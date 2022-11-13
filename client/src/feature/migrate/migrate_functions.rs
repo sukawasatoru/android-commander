@@ -28,7 +28,7 @@ pub fn load_toml(prefs_file_path: &Path) -> Fallible<toml::Value> {
 }
 
 pub fn write_toml(file_path: &Path, toml_value: &toml::Value) -> Fallible<()> {
-    let mut writer = BufWriter::new(File::create(&file_path)?);
+    let mut writer = BufWriter::new(File::create(file_path)?);
     writer.write_all(toml::to_string_pretty(&toml_value)?.as_bytes())?;
     writer.flush()?;
     Ok(())

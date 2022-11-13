@@ -108,7 +108,7 @@ async fn execute(state: StreamState) -> (Option<AdbServerRecipeEvent>, StreamSta
             }
 
             match std::process::Command::new("adb")
-                .args(&[
+                .args([
                     "-s",
                     &device.serial,
                     "push",
@@ -125,7 +125,7 @@ async fn execute(state: StreamState) -> (Option<AdbServerRecipeEvent>, StreamSta
             }
 
             match std::process::Command::new("adb")
-                .args(&[
+                .args([
                     "-s",
                     &device.serial,
                     "shell",
