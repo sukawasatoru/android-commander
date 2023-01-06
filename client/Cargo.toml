@@ -13,7 +13,7 @@ iced = { git = "https://github.com/hecrj/iced.git", rev = "4064cb8a91c39fbdf613c
 rust-embed = { version = "=6.4.2", features = ["include-exclude"] }
 serde = { version = "=1.0.147", features = ["derive"] }
 tempfile = "=3.3.0"
-tokio = { version = "=1.21.2", features = ["fs", "io-std", "io-util", "macros", "sync"] }
+tokio = { version = "=1.23.1", features = ["fs", "io-std", "io-util", "macros", "sync"] }
 toml = "=0.5.9"
 tracing = "=0.1.37"
 tracing-subscriber = { version = "=0.3.16", features = ["env-filter"] }
