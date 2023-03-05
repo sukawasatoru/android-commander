@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "=1.0.66"
-async-trait = "=0.1.58"
+async-trait = "=0.1.65"
 directories = "=4.0.1"
 dotenv = "=0.15.0"
 iced = { git = "https://github.com/hecrj/iced.git", rev = "4064cb8a91c39fbdf613cc39111d8cce0edc575b", features = ["svg", "tokio"] }
