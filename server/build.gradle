@@ -1,68 +1,41 @@
-buildscript {
-    repositories {
-        google()
-    }
-
-    dependencies {
-        classpath 'com.android.tools.build:gradle:7.0.4'
-    }
-}
-
 plugins {
-    id 'com.diffplug.spotless' version '6.1.0' apply false
-    id 'org.jetbrains.kotlin.android' version '1.6.10' apply false
+    alias libs.plugins.android.library apply false
+    alias libs.plugins.kotlin.android apply false
 }
 
-allprojects {
-    repositories {
+def setupAndroidPlugin = { Project project ->
+    project.repositories {
         google()
         mavenCentral()
     }
-}
 
-def setupAndroidPlugin = { project ->
     project.android {
-        compileSdk 31
-        buildToolsVersion '31.0.0'
+        compileSdk 36
+        buildToolsVersion '36.0.0'
 
         defaultConfig {
-            minSdk 24
-            targetSdk 31
+            minSdk 29
+            targetSdk 36
         }
 
         compileOptions {
             coreLibraryDesugaringEnabled true
-            sourceCompatibility JavaVersion.VERSION_11
-            targetCompatibility JavaVersion.VERSION_11
         }
     }
 
     project.dependencies {
-        coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.5'
+        coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
     }
 }
 
 def setupKotlinAndroidPlugin = { project ->
-    project.android {
-        sourceSets.each {
-            it.java.srcDirs += "src/${it.name}/kotlin"
-        }
+    project.kotlin {
+        jvmToolchain 17
+    }
 
+    project.android {
         kotlinOptions {
             freeCompilerArgs += '-Xopt-in=kotlin.RequiresOptIn'
-            jvmTarget = JavaVersion.VERSION_11
-        }
-    }
-}
-
-def setupSpotlessPlugin = { Project project ->
-    project.spotless {
-        kotlin {
-            target project.fileTree(dir: 'src', include: '**/*.kt', exclude: ['test/**/*.kt', 'androidTest/**/*.kt'])
-            ktlint('0.43.0').userData([
-                android: 'true',
-                max_line_length: '120',
-            ])
         }
     }
 }
@@ -71,14 +44,12 @@ subprojects {
     project.plugins.whenPluginAdded {
         switch (it.class.name) {
             case 'com.android.build.gradle.AppPlugin':
+                // fallthrough.
             case 'com.android.build.gradle.LibraryPlugin':
                 setupAndroidPlugin(project)
                 break
             case 'org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper':
                 setupKotlinAndroidPlugin(project)
-                break
-            case 'com.diffplug.gradle.spotless.SpotlessPlugin':
-                setupSpotlessPlugin(project)
                 break
             default:
                 break
@@ -86,6 +57,8 @@ subprojects {
     }
 }
 
-task clean(type: Delete) {
-    delete rootProject.buildDir
+tasks.register('clean', Delete) {
+    group 'build'
+
+    delete rootProject.layout.buildDirectory
 }

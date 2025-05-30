@@ -10,7 +10,7 @@ ifeq ($(OS),Windows_NT)
     REN = REN
 endif
 
-VERSION_BUILD_TOOLS=31.0.0
+VERSION_BUILD_TOOLS=36.0.0
 
 .PHONY: all
 all: compile
@@ -28,7 +28,7 @@ compile:
 #  set javaOpts=%javaOpts% %defaultXmx% %defaultXss%
 # -call "%java_exe%" %javaOpts% -Djava.ext.dirs="%frameworkdir%" -cp "%jarpath%" com.android.tools.r8.D8 %params%
 # +call "%java_exe%" %javaOpts% -classpath "%frameworkdir%" -cp "%jarpath%" com.android.tools.r8.D8 %params%
-	$(ANDROID_HOME)/build-tools/$(VERSION_BUILD_TOOLS)/d8 --output app/build/outputs/android-commander-server.zip app/build/intermediates/aar_main_jar/release/classes.jar
+	$(ANDROID_HOME)/build-tools/$(VERSION_BUILD_TOOLS)/d8 --output app/build/outputs/android-commander-server.zip app/build/intermediates/aar_main_jar/release/syncReleaseLibJars/classes.jar
 	cd app/build/outputs && $(REN) android-commander-server.zip android-commander-server
 
 .PHONY: clean

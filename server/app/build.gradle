@@ -1,16 +1,13 @@
 plugins {
-    id 'com.android.library'
-    id 'com.diffplug.spotless'
-    id 'kotlin-android'
+    alias libs.plugins.android.library
+    alias libs.plugins.kotlin.android
 }
 
 android {
+    namespace 'jp.tinyport.androidcommander.server'
+
     buildFeatures {
         buildConfig false
         resValues false
     }
-}
-
-dependencies {
-    implementation libs.kotlinResult
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 sukawasatoru
+ * Copyright 2021, 2025 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,29 +81,6 @@ private fun parseLine(line: String): ClientCommand? {
             return null
         },
     )
-}
-
-enum class KeyAction {
-    Down,
-    Up;
-
-    companion object {
-        fun from(value: String): KeyAction? {
-            return values().find { it.id == value }
-        }
-    }
-
-    val id: String
-        get() = when (this) {
-            Down -> "down"
-            Up -> "up"
-        }
-
-    val code: Int
-        get() = when (this) {
-            Down -> KeyEvent.ACTION_DOWN
-            Up -> KeyEvent.ACTION_UP
-        }
 }
 
 data class ClientCommand(
