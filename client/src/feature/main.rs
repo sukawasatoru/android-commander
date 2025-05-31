@@ -17,7 +17,7 @@
 mod adb_server_recipe;
 
 use crate::data::resource::Resource;
-use crate::feature::main::adb_server_recipe::{adb_server, AdbServerRecipeEvent};
+use crate::feature::main::adb_server_recipe::{adb_server, find_adb_path, AdbServerRecipeEvent};
 use crate::model::send_event_key::SendEventKey;
 use crate::model::{AndroidDevice, KeyMap, Preferences, XMessage};
 use crate::prelude::*;
@@ -535,7 +535,7 @@ fn retrieve_devices_command() -> Task<MainViewCommand> {
 }
 
 async fn retrieve_devices() -> Fallible<Vec<AndroidDevice>> {
-    let child = std::process::Command::new("adb")
+    let child = std::process::Command::new(find_adb_path())
         .arg("devices")
         .stdout(std::process::Stdio::piped())
         .spawn()

@@ -103,7 +103,7 @@ async fn execute(
         return;
     }
 
-    if let Err(e) = std::process::Command::new("adb")
+    if let Err(e) = std::process::Command::new(find_adb_path())
         .args([
             "-s",
             &device.serial,
@@ -118,7 +118,7 @@ async fn execute(
         return;
     }
 
-    let mut child = match std::process::Command::new("adb")
+    let mut child = match std::process::Command::new(find_adb_path())
         .args([
             "-s",
             &device.serial,
@@ -175,4 +175,38 @@ async fn execute(
     child.kill().ok();
     child.wait().ok();
     output.send(YieldValue::Disconnected).await.ok();
+}
+
+pub fn find_adb_path() -> String {
+    if cfg!(target_os = "macos") {
+        // for terminal.
+        if let Ok(data) =
+            std::env::var("ANDROID_HOME").or_else(|_| std::env::var("ANDROID_SDK_ROOT"))
+        {
+            debug!(%data, "use adb from env");
+            return format!("{data}/platform-tools/adb");
+        }
+
+        // for finder.
+        if let Ok(data) = std::process::Command::new("whoami").output() {
+            let whoami = String::from_utf8_lossy(&data.stdout);
+            let whoami = whoami.trim();
+            let path_adb = format!("/Users/{}/Library/Android/sdk/platform-tools/adb", whoami);
+            if std::fs::metadata(&path_adb).is_ok() {
+                info!(path_adb, "use adb from whoami");
+                return path_adb;
+            }
+        }
+
+        // for finder.
+        if std::fs::metadata("/opt/android-sdk-macosx/platform-tools/adb").is_ok() {
+            info!("use adb from /opt/android-sdk-macosx/platform-tools/adb");
+            return "/opt/android-sdk-macosx/platform-tools/adb".into();
+        }
+
+        // terminal can refer adb if it is in PATH.
+        "adb".into()
+    } else {
+        "adb".into()
+    }
 }
