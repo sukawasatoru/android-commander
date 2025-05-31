@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 sukawasatoru
+ * Copyright 2022, 2025 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ use crate::feature::migrate::migrate_functions::{load_toml, write_toml};
 use crate::model::FileVersion;
 use crate::prelude::*;
 use std::path::Path;
-use tracing::info;
 
 pub fn migrate_0_1_3(preferences_dir: &Path) -> Fallible<()> {
     let preferences_path = preferences_dir.join("preferences.toml");

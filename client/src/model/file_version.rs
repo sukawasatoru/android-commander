@@ -1,5 +1,5 @@
 /*
- * Copyright 2019, 2020, 2022 sukawasatoru
+ * Copyright 2019, 2020, 2022, 2025 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use crate::function::serde_functions::StrVisitor;
 use std::{cmp, fmt};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -88,9 +87,22 @@ impl<'de> serde::Deserialize<'de> for FileVersion {
     where
         D: serde::Deserializer<'de>,
     {
-        let value = deserializer.deserialize_str(StrVisitor)?;
-        value
-            .parse::<FileVersion>()
-            .map_err(serde::de::Error::custom)
+        struct StrVisitor;
+        impl<'de> serde::de::Visitor<'de> for StrVisitor {
+            type Value = FileVersion;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("a string")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                v.parse::<FileVersion>().map_err(serde::de::Error::custom)
+            }
+        }
+
+        deserializer.deserialize_str(StrVisitor)
     }
 }

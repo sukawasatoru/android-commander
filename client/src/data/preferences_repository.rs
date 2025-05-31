@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 sukawasatoru
+ * Copyright 2022, 2025 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-use crate::model::{AppTheme, FileVersion, KeyMap, Preferences};
+use crate::model::{FileVersion, KeyMap, Preferences};
 use crate::prelude::*;
+use iced::Theme;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::fs::{create_dir_all, File};
@@ -127,7 +128,7 @@ impl From<PrefsDto> for Preferences {
     fn from(value: PrefsDto) -> Self {
         Self {
             key_map: KeyMap::from(value.key_map),
-            theme: value.theme.map(AppTheme::from).unwrap_or_default(),
+            theme: value.theme.map(Theme::from).unwrap_or_default(),
         }
     }
 }
@@ -219,20 +220,21 @@ enum ThemeDto {
     Dark,
 }
 
-impl From<ThemeDto> for AppTheme {
+impl From<ThemeDto> for Theme {
     fn from(value: ThemeDto) -> Self {
         match value {
-            ThemeDto::Light => AppTheme::Light,
-            ThemeDto::Dark => AppTheme::Dark,
+            ThemeDto::Light => Theme::Light,
+            ThemeDto::Dark => Theme::Dark,
         }
     }
 }
 
-impl From<AppTheme> for ThemeDto {
-    fn from(value: AppTheme) -> Self {
+impl From<Theme> for ThemeDto {
+    fn from(value: Theme) -> Self {
         match value {
-            AppTheme::Light => ThemeDto::Light,
-            AppTheme::Dark => ThemeDto::Dark,
+            Theme::Light => ThemeDto::Light,
+            Theme::Dark => ThemeDto::Dark,
+            _ => ThemeDto::Light,
         }
     }
 }

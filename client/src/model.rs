@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 sukawasatoru
+ * Copyright 2022, 2025 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,11 @@
  */
 
 pub use preferences::{KeyMap, Preferences};
-pub use theme::{AppTheme, ColorKeyButtonStyle};
 pub use x_message::XMessage;
 
 mod file_version;
 mod preferences;
 pub mod send_event_key;
-pub mod theme;
 mod x_message;
 
 pub use file_version::FileVersion;

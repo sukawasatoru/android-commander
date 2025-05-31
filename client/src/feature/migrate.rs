@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 sukawasatoru
+ * Copyright 2022, 2025 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@ use std::fs::File;
 use std::io::{prelude::*, BufReader, BufWriter};
 use std::path::Path;
 use std::rc::Rc;
-use tracing::info;
 
 pub fn migrate() -> Fallible<()> {
     let version = env!("CARGO_PKG_VERSION").parse::<FileVersion>()?;
@@ -125,7 +124,6 @@ mod tests {
     use crate::feature::migrate::migrate_functions::load_toml;
     use crate::feature::migrate::migrate_functions::tests::prepare_preferences;
     use tempfile::tempdir;
-    use tracing::info;
 
     #[tokio::test]
     async fn test_set_version() {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020, 2021, 2022 sukawasatoru
+ * Copyright 2020, 2021, 2022, 2025 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#![windows_subsystem = "windows"]
+
 #[allow(unused_imports)]
 use android_commander::data::preferences_repository::MockPreferencesRepository;
 use android_commander::data::preferences_repository::{
@@ -27,14 +29,11 @@ use android_commander::feature::settings::{
 use android_commander::model::Preferences;
 use android_commander::model::XMessage;
 use android_commander::prelude::*;
-use iced::theme::Theme;
-use iced::widget::{button, column, container, row, Column, Space};
-use iced::window::{resize, Settings as WindowSettings};
-use iced::{executor, Application, Command, Element, Length, Settings, Subscription};
-use std::path::PathBuf;
+use iced::widget::{button, column, container, row, Space};
+use iced::window::{self, resize};
+use iced::{Element, Length, Subscription, Task, Theme};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{info, warn};
 
 #[derive(Clone, Debug, PartialEq)]
 enum ActiveView {
@@ -50,11 +49,7 @@ enum AppCommand {
     OnXMessage(XMessage),
     SettingsViewCommand(SettingsViewCommand),
     Sink,
-}
-
-#[derive(Default)]
-struct AppFlags {
-    config_dir: PathBuf,
+    WindowID(window::Id),
 }
 
 struct App {
@@ -65,6 +60,7 @@ struct App {
     state_view_settings: SettingsViewState,
     theme: Theme,
     view_main: MainView,
+    window_id: Option<window::Id>,
 }
 
 impl SettingsView for App {
@@ -84,49 +80,28 @@ impl SettingsView for App {
     }
 }
 
-impl Application for App {
-    type Executor = executor::Default;
-    type Message = AppCommand;
-    type Theme = Theme;
-    type Flags = AppFlags;
-
-    fn new(flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        let config_file_path = flags.config_dir.join("preferences.toml");
-        let prefs = Arc::new(Preferences::default());
-        let theme = Theme::from(&prefs.theme);
-        (
-            Self {
-                active_view: ActiveView::Main,
-                prefs_repo: Arc::new(Mutex::new(PreferencesRepositoryImpl::new(
-                    config_file_path.to_owned(),
-                ))),
-                theme: theme.clone(),
-                state_view_settings: SettingsViewState::new(config_file_path, theme),
-                view_main: MainView::new(prefs),
-            },
-            Command::batch([
-                Command::perform(async {}, |_| AppCommand::OnInit),
-                MainView::init_command().map(AppCommand::MainViewCommand),
-            ]),
-        )
-    }
-
+impl App {
     fn title(&self) -> String {
         "Android Commander".into()
     }
 
-    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
+    fn update(&mut self, message: AppCommand) -> Task<AppCommand> {
         match message {
             AppCommand::ActiveView(data) => {
                 info!(?data, "onActiveView");
                 self.active_view = data;
 
-                let (w, h) = match self.active_view {
-                    ActiveView::Main => MainView::view_size(),
-                    ActiveView::Settings => <Self as SettingsView>::view_size(self),
-                };
-
-                resize(w, h)
+                self.window_id
+                    .map(|id| {
+                        resize(
+                            id,
+                            match self.active_view {
+                                ActiveView::Main => MainView::view_size(),
+                                ActiveView::Settings => <Self as SettingsView>::view_size(self),
+                            },
+                        )
+                    })
+                    .unwrap_or_else(Task::none)
             }
             AppCommand::MainViewCommand(command) => self
                 .view_main
@@ -137,7 +112,7 @@ impl Application for App {
                 let mut commands = vec![];
                 match x_message {
                     XMessage::OnNewPreferences(ref prefs) => {
-                        self.theme = (&prefs.theme).into();
+                        self.theme = prefs.theme.clone();
                     }
                     XMessage::OnPrefsFileUpdated => {
                         commands.push(self.load_prefs_command());
@@ -155,7 +130,7 @@ impl Application for App {
                     )
                     .map(AppCommand::SettingsViewCommand),
                 );
-                Command::batch(commands)
+                Task::batch(commands)
             }
             AppCommand::SettingsViewCommand(data) => <Self as SettingsView>::update(self, data)
                 .map(|command| {
@@ -165,60 +140,74 @@ impl Application for App {
                         AppCommand::SettingsViewCommand(command)
                     }
                 }),
-            AppCommand::Sink => Command::none(),
+            AppCommand::Sink => Task::none(),
+            AppCommand::WindowID(id) => {
+                self.window_id = Some(id);
+                Task::none()
+            }
         }
     }
 
-    fn view(&self) -> Element<'_, Self::Message, iced::Renderer<Self::Theme>> {
-        let button_width = Length::Units(90);
-        let button_height = Length::Units(30);
-        let mut view: Column<Self::Message, iced::Renderer<Self::Theme>> = column![
+    fn view(&self) -> Element<AppCommand> {
+        let button_width = Length::Fixed(90.0);
+        let button_height = Length::Fixed(30.0);
+        let mut view = column![
             row![
                 button("Main")
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(AppCommand::ActiveView(ActiveView::Main)),
                 button("Settings")
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(AppCommand::ActiveView(ActiveView::Settings)),
             ],
-            Space::with_height(12.into()),
+            Space::with_height(12),
         ];
 
         view = match self.active_view {
-            ActiveView::Main => view.push(
-                container(self.view_main.view().map(Self::Message::MainViewCommand)).padding(4),
-            ),
+            ActiveView::Main => view
+                .push(container(self.view_main.view().map(AppCommand::MainViewCommand)).padding(4)),
             ActiveView::Settings => view.push(
-                container(
-                    <Self as SettingsView>::view(self).map(Self::Message::SettingsViewCommand),
-                )
-                .padding(4),
+                container(<Self as SettingsView>::view(self).map(AppCommand::SettingsViewCommand))
+                    .padding(4),
             ),
         };
 
         view.into()
     }
 
-    fn theme(&self) -> Self::Theme {
+    fn theme(&self) -> Theme {
         self.theme.clone()
     }
 
-    fn subscription(&self) -> Subscription<Self::Message> {
-        Subscription::batch([self
-            .view_main
-            .subscription()
-            .map(AppCommand::MainViewCommand)])
-    }
-}
+    fn subscription(&self) -> Subscription<AppCommand> {
+        let mut subscriptions = vec![];
 
-impl App {
-    fn load_prefs_command(&self) -> Command<AppCommand> {
+        if self.window_id.is_none() {
+            subscriptions.push(iced::event::listen_with(|event, _status, id| {
+                if let iced::event::Event::Window(window::Event::Opened { .. }) = event {
+                    Some(AppCommand::WindowID(id))
+                } else {
+                    None
+                }
+            }));
+        }
+
+        subscriptions.push(
+            self.view_main
+                .subscription()
+                .map(AppCommand::MainViewCommand),
+        );
+
+        Subscription::batch(subscriptions)
+    }
+
+    fn load_prefs_command(&self) -> Task<AppCommand> {
         let repo = self.prefs_repo.clone();
-        Command::perform(
+        Task::perform(
             async move {
                 match repo.lock().await.load().await {
                     Ok(data) => Some(Arc::new(data)),
@@ -236,37 +225,46 @@ impl App {
     }
 }
 
-fn main() -> Fallible<()> {
-    // TODO: disable log.
-    #[cfg(target_os = "windows")]
-    if false {
-        let code = unsafe { winapi::um::wincon::FreeConsole() };
-        if code == 0 {
-            panic!("unable to detach the console")
-        }
-    }
-
+fn main() -> iced::Result {
     dotenv::dotenv().ok();
     tracing_subscriber::fmt::init();
 
-    info!("Hello");
-
-    let config_dir = directories::ProjectDirs::from("com", "sukawasatoru", "AndroidCommander")
-        .context("directories")?
-        .config_dir()
-        .to_path_buf();
-
-    migrate()?;
-
-    App::run(Settings {
-        window: WindowSettings {
+    iced::application(App::title, App::update, App::view)
+        .theme(App::theme)
+        .subscription(App::subscription)
+        .window(window::Settings {
             size: MainView::view_size(),
             ..Default::default()
-        },
-        flags: AppFlags { config_dir },
-        ..Default::default()
-    })?;
+        })
+        .run_with(|| {
+            let config_dir =
+                directories::ProjectDirs::from("com", "sukawasatoru", "AndroidCommander")
+                    .unwrap()
+                    .config_dir()
+                    .to_path_buf();
 
-    info!("Bye");
-    Ok(())
+            migrate().unwrap();
+
+            let config_file_path = config_dir.join("preferences.toml");
+            let prefs = Arc::new(Preferences::default());
+            (
+                App {
+                    active_view: ActiveView::Main,
+                    prefs_repo: Arc::new(Mutex::new(PreferencesRepositoryImpl::new(
+                        config_file_path.to_owned(),
+                    ))),
+                    theme: prefs.theme.clone(),
+                    state_view_settings: SettingsViewState::new(
+                        config_file_path,
+                        prefs.theme.clone(),
+                    ),
+                    view_main: MainView::new(prefs),
+                    window_id: None,
+                },
+                Task::batch([
+                    Task::done(AppCommand::OnInit),
+                    MainView::init_command().map(AppCommand::MainViewCommand),
+                ]),
+            )
+        })
 }

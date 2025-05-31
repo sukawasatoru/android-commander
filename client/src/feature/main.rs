@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 sukawasatoru
+ * Copyright 2022, 2025 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,17 +19,15 @@ mod adb_server_recipe;
 use crate::data::resource::Resource;
 use crate::feature::main::adb_server_recipe::{adb_server, AdbServerRecipeEvent};
 use crate::model::send_event_key::SendEventKey;
-use crate::model::{AndroidDevice, ColorKeyButtonStyle, KeyMap, Preferences, XMessage};
+use crate::model::{AndroidDevice, KeyMap, Preferences, XMessage};
 use crate::prelude::*;
-use iced::keyboard::{Event as KeyboardEvent, KeyCode};
-use iced::subscription::events as native_events;
+use iced::keyboard::{self, key, Key};
 use iced::widget::{
     button, checkbox, column, container, pick_list, row, svg, svg::Handle as SvgHandle, Space,
 };
-use iced::{Command, Element, Event as NativeEvent, Length, Subscription};
+use iced::{Background, Color, Element, Event as NativeEvent, Length, Size, Subscription, Task};
 use std::io::BufRead;
 use std::sync::Arc;
-use tracing::{debug, info, warn};
 
 #[derive(Clone, Debug)]
 pub enum MainViewCommand {
@@ -72,11 +70,11 @@ impl MainView {
         }
     }
 
-    pub fn init_command() -> Command<MainViewCommand> {
+    pub fn init_command() -> Task<MainViewCommand> {
         retrieve_devices_command()
     }
 
-    pub fn update(&mut self, command: MainViewCommand) -> Command<MainViewCommand> {
+    pub fn update(&mut self, command: MainViewCommand) -> Task<MainViewCommand> {
         match command {
             MainViewCommand::AdbDevicesSelected(data) => {
                 info!(%data, "device selected");
@@ -101,18 +99,18 @@ impl MainView {
                     AdbConnectivity::Connected => (),
                     AdbConnectivity::Connecting | AdbConnectivity::Disconnected => {
                         debug!("skip broadcasting");
-                        return Command::none();
+                        return Task::none();
                     }
                 }
 
                 match data {
-                    NativeEvent::Keyboard(data) => match data {
-                        KeyboardEvent::KeyPressed { key_code, .. } => {
-                            debug!(?key_code, "update KeyPressed");
+                    iced::Event::Keyboard(data) => match data {
+                        keyboard::Event::KeyPressed { key, .. } => {
+                            debug!(?key, "update KeyPressed");
 
-                            let send_event_key = match create_send_event_key(key_code) {
+                            let send_event_key = match create_send_event_key(key) {
                                 Some(data) => data,
-                                None => return Command::none(),
+                                None => return Task::none(),
                             };
 
                             let ret = self.adb_server_tx.send(create_pressed_key_command(
@@ -124,12 +122,12 @@ impl MainView {
                                 warn!(?e, "failed to send the sendevent");
                             }
                         }
-                        KeyboardEvent::KeyReleased { key_code, .. } => {
-                            debug!(?key_code, "update KeyReleased");
+                        keyboard::Event::KeyReleased { key, .. } => {
+                            debug!(?key, "update KeyReleased");
 
-                            let send_event_key = match create_send_event_key(key_code) {
+                            let send_event_key = match create_send_event_key(key) {
                                 Some(data) => data,
-                                None => return Command::none(),
+                                None => return Task::none(),
                             };
 
                             let ret = self.adb_server_tx.send(create_release_key_command(
@@ -170,7 +168,7 @@ impl MainView {
             MainViewCommand::OnAdbConnectClicked => {
                 if self.adb_devices_selected.is_none() {
                     info!("need to select device");
-                    return Command::none();
+                    return Task::none();
                 }
 
                 match self.adb_connectivity {
@@ -195,7 +193,7 @@ impl MainView {
                     AdbConnectivity::Connected => (),
                     AdbConnectivity::Connecting | AdbConnectivity::Disconnected => {
                         debug!("skip broadcasting");
-                        return Command::none();
+                        return Task::none();
                     }
                 }
 
@@ -218,7 +216,7 @@ impl MainView {
                 // do nothing.
             }
         }
-        Command::none()
+        Task::none()
     }
 
     pub fn subscription(&self) -> Subscription<MainViewCommand> {
@@ -235,7 +233,7 @@ impl MainView {
                 Subscription::batch(vec![
                     adb_server(device, self.adb_server_rx.clone())
                         .map(MainViewCommand::AdbServerRecipeResult),
-                    native_events().map(MainViewCommand::Event),
+                    iced::event::listen().map(MainViewCommand::Event),
                 ])
             }
             AdbConnectivity::Disconnected => Subscription::none(),
@@ -243,196 +241,211 @@ impl MainView {
     }
 
     pub fn view(&self) -> Element<MainViewCommand> {
-        let button_width = Length::Units(90);
-        let button_height = Length::Units(30);
+        let button_width = Length::Fixed(90.0);
+        let button_height = Length::Fixed(30.0);
 
         column![
             "ADB:",
             row![
-                button(svg(SvgHandle::from_memory(
-                    Resource::get("arrow-path.svg")
-                        .context("arrow-path.svg")
-                        .unwrap()
-                        .data,
-                )))
-                .style(iced::theme::Button::Secondary)
+                button(
+                    svg(SvgHandle::from_memory(
+                        Resource::get("arrow-path.svg")
+                            .context("arrow-path.svg")
+                            .unwrap()
+                            .data,
+                    ))
+                    .width(24)
+                )
+                .style(button::secondary)
                 .on_press(MainViewCommand::OnAdbDevicesReloadClicked),
                 pick_list(
-                    &self.adb_devices,
+                    self.adb_devices.clone(),
                     self.adb_devices_selected.clone(),
                     MainViewCommand::AdbDevicesSelected,
                 ),
             ]
             .height(button_height),
-            Space::with_height(4.into()),
+            Space::with_height(4),
             checkbox(
                 "connect",
                 match self.adb_connectivity {
                     AdbConnectivity::Connecting | AdbConnectivity::Disconnected => false,
                     AdbConnectivity::Connected => true,
                 },
-                |_| MainViewCommand::OnAdbConnectClicked,
-            ),
+            )
+            .on_toggle(|_| MainViewCommand::OnAdbConnectClicked),
             match self.adb_connectivity {
                 AdbConnectivity::Connecting => "status: connecting",
                 AdbConnectivity::Connected => "status: connected",
                 AdbConnectivity::Disconnected => "status: disconnected",
             },
-            Space::with_height(16.into()),
+            Space::with_height(16),
             row![
                 button(Space::new(Length::Fill, Length::Fill))
-                    .width(70.into())
+                    .width(70)
                     .height(button_height)
-                    .style(iced::theme::Button::Custom(Box::new(
-                        ColorKeyButtonStyle::ColorKeyRed
-                    )))
+                    .style(|theme, status| {
+                        button::Style {
+                            background: Some(Background::Color(Color::new(1.0, 0.0, 0.0, 1.0))),
+                            ..button::secondary(theme, status)
+                        }
+                    })
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorRed)),
                 button(Space::new(Length::Fill, Length::Fill))
-                    .width(70.into())
+                    .width(70)
                     .height(button_height)
-                    .style(iced::theme::Button::Custom(Box::new(
-                        ColorKeyButtonStyle::ColorKeyGreen
-                    )))
+                    .style(|theme, status| {
+                        button::Style {
+                            background: Some(Background::Color(Color::new(0.0, 1.0, 0.0, 1.0))),
+                            ..button::secondary(theme, status)
+                        }
+                    })
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorGreen)),
                 button(Space::new(Length::Fill, Length::Fill))
-                    .width(70.into())
+                    .width(70)
                     .height(button_height)
-                    .style(iced::theme::Button::Custom(Box::new(
-                        ColorKeyButtonStyle::ColorKeyBlue
-                    )))
+                    .style(|theme, status| {
+                        button::Style {
+                            background: Some(Background::Color(Color::new(0.0, 0.0, 1.0, 1.0))),
+                            ..button::secondary(theme, status)
+                        }
+                    })
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorBlue)),
                 button(Space::new(Length::Fill, Length::Fill))
-                    .width(70.into())
+                    .width(70)
                     .height(button_height)
-                    .style(iced::theme::Button::Custom(Box::new(
-                        ColorKeyButtonStyle::ColorKeyYellow
-                    )))
+                    .style(|theme, status| {
+                        button::Style {
+                            background: Some(Background::Color(Color::new(1.0, 1.0, 0.0, 1.0))),
+                            ..button::secondary(theme, status)
+                        }
+                    })
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorYellow)),
             ]
             .spacing(4),
-            Space::with_height(8.into()),
+            Space::with_height(8),
             row![
-                Space::with_width((90 + 8).into()),
+                Space::with_width(90 + 8),
                 button("Up (k)")
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadUp)),
             ]
             .spacing(4),
-            Space::with_height(4.into()),
+            Space::with_height(4),
             row![
-                Space::with_width(4.into()),
+                Space::with_width(4),
                 button("Left (h)")
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadLeft)),
                 button("OK")
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadOk)),
                 button("Right (l)")
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadRight)),
             ]
             .spacing(4),
-            Space::with_height(4.into()),
+            Space::with_height(4),
             row![
-                Space::with_width((90 + 8).into()),
+                Space::with_width(90 + 8),
                 button("Down (j)")
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadDown)),
                 Space::new(button_width, button_height),
             ]
             .spacing(4),
-            Space::with_height(8.into()),
+            Space::with_height(8),
             row![
-                Space::with_width(4.into()),
+                Space::with_width(4),
                 button("Back")
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Back)),
                 button("Home")
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Home)),
             ]
             .spacing(4),
-            Space::with_height(8.into()),
+            Space::with_height(8),
             row![
-                Space::with_width(4.into()),
-                button(container("1").width(Length::Fill).center_x())
+                Space::with_width(4),
+                button(container("1").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num1)),
-                button(container("2").width(Length::Fill).center_x())
+                button(container("2").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num2)),
-                button(container("3").width(Length::Fill).center_x())
+                button(container("3").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num3)),
             ]
             .spacing(4),
-            Space::with_height(4.into()),
+            Space::with_height(4),
             row![
-                Space::with_width(4.into()),
-                button(container("4").width(Length::Fill).center_x())
+                Space::with_width(4),
+                button(container("4").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num4)),
-                button(container("5").width(Length::Fill).center_x())
+                button(container("5").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num5)),
-                button(container("6").width(Length::Fill).center_x())
+                button(container("6").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num6)),
             ]
             .spacing(4),
-            Space::with_height(4.into()),
+            Space::with_height(4),
             row![
-                Space::with_width(4.into()),
-                button(container("7").width(Length::Fill).center_x())
+                Space::with_width(4),
+                button(container("7").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num7)),
-                button(container("8").width(Length::Fill).center_x())
+                button(container("8").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num8)),
-                button(container("9").width(Length::Fill).center_x())
+                button(container("9").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num9)),
             ]
             .spacing(4),
-            Space::with_height(4.into()),
+            Space::with_height(4),
             row![
-                Space::with_width((90 + 8).into()),
-                button(container("0").width(Length::Fill).center_x())
+                Space::with_width(90 + 8),
+                button(container("0").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(iced::theme::Button::Secondary)
+                    .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num0)),
             ]
             .spacing(4),
@@ -440,30 +453,30 @@ impl MainView {
         .into()
     }
 
-    pub fn view_size() -> (u32, u32) {
-        (300, 480)
+    pub fn view_size() -> Size {
+        Size::new(300.0, 480.0)
     }
 }
 
-fn create_send_event_key(key: KeyCode) -> Option<SendEventKey> {
-    match key {
-        KeyCode::Key1 => Some(SendEventKey::Num1),
-        KeyCode::Key2 => Some(SendEventKey::Num2),
-        KeyCode::Key3 => Some(SendEventKey::Num3),
-        KeyCode::Key4 => Some(SendEventKey::Num4),
-        KeyCode::Key5 => Some(SendEventKey::Num5),
-        KeyCode::Key6 => Some(SendEventKey::Num6),
-        KeyCode::Key7 => Some(SendEventKey::Num7),
-        KeyCode::Key8 => Some(SendEventKey::Num8),
-        KeyCode::Key9 => Some(SendEventKey::Num9),
-        KeyCode::Key0 => Some(SendEventKey::Num0),
-        KeyCode::J => Some(SendEventKey::DpadDown),
-        KeyCode::K => Some(SendEventKey::DpadUp),
-        KeyCode::H => Some(SendEventKey::DpadLeft),
-        KeyCode::L => Some(SendEventKey::DpadRight),
-        KeyCode::T => Some(SendEventKey::Home),
-        KeyCode::Enter => Some(SendEventKey::DpadOk),
-        KeyCode::Backspace => Some(SendEventKey::Back),
+fn create_send_event_key(key: Key) -> Option<SendEventKey> {
+    match key.as_ref() {
+        Key::Character("1") => Some(SendEventKey::Num1),
+        Key::Character("2") => Some(SendEventKey::Num2),
+        Key::Character("3") => Some(SendEventKey::Num3),
+        Key::Character("4") => Some(SendEventKey::Num4),
+        Key::Character("5") => Some(SendEventKey::Num5),
+        Key::Character("6") => Some(SendEventKey::Num6),
+        Key::Character("7") => Some(SendEventKey::Num7),
+        Key::Character("8") => Some(SendEventKey::Num8),
+        Key::Character("9") => Some(SendEventKey::Num9),
+        Key::Character("0") => Some(SendEventKey::Num0),
+        Key::Character("j") => Some(SendEventKey::DpadDown),
+        Key::Character("k") => Some(SendEventKey::DpadUp),
+        Key::Character("h") => Some(SendEventKey::DpadLeft),
+        Key::Character("l") => Some(SendEventKey::DpadRight),
+        Key::Character("t") => Some(SendEventKey::Home),
+        Key::Named(key::Named::Enter) => Some(SendEventKey::DpadOk),
+        Key::Named(key::Named::Backspace) => Some(SendEventKey::Back),
         _ => None,
     }
 }
@@ -506,8 +519,8 @@ fn create_click_key_command(key_map: &KeyMap, key: &SendEventKey) -> String {
     format!("down {code}\nup {code}", code = get_key(key_map, key))
 }
 
-fn retrieve_devices_command() -> Command<MainViewCommand> {
-    Command::perform(
+fn retrieve_devices_command() -> Task<MainViewCommand> {
+    Task::perform(
         async {
             match retrieve_devices().await {
                 Ok(data) => data.into_iter().map(Arc::new).collect(),

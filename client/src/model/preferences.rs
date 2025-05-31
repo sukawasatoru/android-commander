@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 sukawasatoru
+ * Copyright 2022, 2025 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-use crate::model::AppTheme;
+use iced::Theme;
 
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub struct Preferences {
     pub key_map: KeyMap,
-    pub theme: AppTheme,
+    pub theme: Theme,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

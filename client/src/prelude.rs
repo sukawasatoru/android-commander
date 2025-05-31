@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 sukawasatoru
+ * Copyright 2022, 2025 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,3 +15,4 @@
  */
 
 pub use anyhow::{Context as AnyhowContext, Result as Fallible};
+pub use tracing::{debug, error, info, instrument, trace, warn};

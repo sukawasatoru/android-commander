@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 sukawasatoru
+ * Copyright 2022, 2025 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,13 @@
  */
 
 use crate::data::preferences_repository::PreferencesRepository;
-use crate::model::{AppTheme, XMessage};
-use crate::prelude::Fallible;
-use iced::theme::Theme;
+use crate::model::XMessage;
+use crate::prelude::*;
 use iced::widget::{button, column, pick_list, row};
-use iced::{Command, Element};
-use std::fmt::{Display, Formatter};
+use iced::{Element, Size, Task, Theme};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{debug, warn};
 
 pub struct ViewState {
     config_file_path: PathBuf,
@@ -42,7 +39,7 @@ impl ViewState {
 
 #[derive(Clone, Debug)]
 pub enum SettingsViewCommand {
-    OnThemeSelected(AppTheme),
+    OnThemeSelected(Theme),
     OnOpenKeycodeReferencesButtonClicked,
     OnOpenPrefsButtonClicked,
     OnOpenPrefsDirButtonClicked,
@@ -60,10 +57,10 @@ pub trait SettingsView {
 
     fn get_state_mut(&mut self) -> &mut ViewState;
 
-    fn update(&mut self, command: SettingsViewCommand) -> Command<SettingsViewCommand> {
+    fn update(&mut self, command: SettingsViewCommand) -> Task<SettingsViewCommand> {
         match command {
             SettingsViewCommand::OnThemeSelected(theme) => {
-                return Command::perform(
+                return Task::perform(
                     save_theme(self.get_prefs_repo(), theme),
                     |data| match data {
                         Ok(_) => SettingsViewCommand::SendXMessage(XMessage::OnPrefsFileUpdated),
@@ -84,7 +81,7 @@ pub trait SettingsView {
                     // do nothing.
                 }
                 XMessage::OnNewPreferences(prefs) => {
-                    self.get_state_mut().theme = (&prefs.theme).into();
+                    self.get_state_mut().theme = prefs.theme.clone();
                 }
             },
             SettingsViewCommand::SendXMessage(_) | SettingsViewCommand::Sink => {
@@ -92,41 +89,41 @@ pub trait SettingsView {
             }
         }
 
-        Command::none()
+        Task::none()
     }
 
     fn view(&self) -> Element<SettingsViewCommand> {
         column![
             button("Reload preferences")
-                .width(292.into())
-                .style(iced::theme::Button::Secondary)
+                .width(292)
+                .style(button::secondary)
                 .on_press(SettingsViewCommand::SendXMessage(
                     XMessage::OnPrefsFileUpdated
                 )),
             button("Open preferences directory")
-                .width(292.into())
-                .style(iced::theme::Button::Secondary)
+                .width(292)
+                .style(button::secondary)
                 .on_press(SettingsViewCommand::OnOpenPrefsDirButtonClicked),
             button("Open KeyCode references")
-                .width(292.into())
-                .style(iced::theme::Button::Secondary)
+                .width(292)
+                .style(button::secondary)
                 .on_press(SettingsViewCommand::OnOpenKeycodeReferencesButtonClicked),
             row![
                 "Theme: ",
                 pick_list(
-                    &[AppTheme::Light, AppTheme::Dark][..],
-                    Some((&self.get_state().theme).into()),
+                    &[Theme::Light, Theme::Dark][..],
+                    Some(&self.get_state().theme),
                     SettingsViewCommand::OnThemeSelected,
                 ),
             ]
-            .align_items(iced::alignment::Alignment::Center),
+            .align_y(iced::alignment::Alignment::Center),
         ]
         .spacing(8)
         .into()
     }
 
-    fn view_size(&self) -> (u32, u32) {
-        (300, 260)
+    fn view_size(&self) -> Size {
+        Size::new(300.0, 260.0)
     }
 }
 
@@ -202,7 +199,7 @@ fn open_keycode_references() {
 
 async fn save_theme<Repo: PreferencesRepository>(
     repo: Arc<Mutex<Repo>>,
-    theme: AppTheme,
+    theme: Theme,
 ) -> Fallible<()> {
     let repo = repo.lock().await;
     let mut prefs = match repo.load().await {
@@ -211,13 +208,4 @@ async fn save_theme<Repo: PreferencesRepository>(
     };
     prefs.theme = theme;
     repo.save(prefs).await
-}
-
-impl Display for AppTheme {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AppTheme::Light => write!(f, "Light"),
-            AppTheme::Dark => write!(f, "Dark"),
-        }
-    }
 }
