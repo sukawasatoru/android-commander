@@ -9,63 +9,61 @@ jobs:
   build-android-commander-server:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Build
-        run: make -C server
-      - uses: actions/upload-artifact@v2
+      - uses: actions/checkout@v4
+      - run: make -C server
+      - uses: actions/upload-artifact@v4
         with:
           name: android-commander-server
           path: server/app/build/outputs/android-commander-server
           if-no-files-found: error
-  build-win:
+  build:
     needs:
       - build-android-commander-server
+    strategy:
+      max-parallel: 3
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+          - macos-latest
     # https://github.com/actions/virtual-environments#available-environments
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/download-artifact@v2
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: android-commander-server
           path: server/app/build/outputs
-      - name: Setup Rust
-        run: make -C client prepare
-      - name: Build
-        run: make -C client
-      - name: Clippy
-        run: make -C client lint
-      - name: Test
-        run: make -C client test
-      - uses: actions/upload-artifact@v2
+      - run: make -C client prepare
+      - run: make -C client
+      - run: make -C client lint
+      - run: make -C client test
+      - if: ${{ matrix.os == 'macos-latest' }}
+        name: Create .app
+        run: |
+          mkdir -p client/target/release/app/AndroidCommander.app/Contents/MacOS
+          cp client/target/release/android-commander client/target/release/app/AndroidCommander.app/Contents/MacOS
+          cp client/assets/Info.plist client/target/release/app/AndroidCommander.app/Contents
+      - if: ${{ matrix.os == 'windows-latest' }}
+        uses: actions/upload-artifact@v4
         with:
-          name: android-commander-win
+          name: android-commander-windows
           path: client/target/release/android-commander.exe
           if-no-files-found: error
-  build-ubuntu:
-    needs:
-      - build-android-commander-server
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/download-artifact@v2
-        with:
-          name: android-commander-server
-          path: server/app/build/outputs
-      - name: Setup Rust
-        run: make -C client prepare
-      - name: Build
-        run: make -C client
-      - name: Clippy
-        run: make -C client lint
-      - name: Test
-        run: make -C client test
-      - uses: actions/upload-artifact@v2
+      - if: ${{ matrix.os == 'ubuntu-latest' }}
+        uses: actions/upload-artifact@v4
         with:
           name: android-commander-linux
           path: client/target/release/android-commander
           if-no-files-found: error
+      - if: ${{ matrix.os == 'macos-latest' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-commander-macos
+          path: client/target/release/app
+          if-no-files-found: error
   rustfmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - run: make -C client prepare fmt
