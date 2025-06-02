@@ -28,13 +28,14 @@ client:server."down KEYCODE_DPAD_LEFT" (via. stdin)
 
 client[1]:stop
 ```
+
 </details>
 
 LICENSE
 -------
 
 ```
-   Copyright 2020, 2021, 2022 sukawasatoru
+   Copyright 2020, 2021, 2022, 2025 sukawasatoru
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
