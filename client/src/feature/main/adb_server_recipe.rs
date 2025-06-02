@@ -103,7 +103,7 @@ async fn execute(
         return;
     }
 
-    if let Err(e) = std::process::Command::new(find_adb_path())
+    if let Err(e) = adb_command()
         .args([
             "-s",
             &device.serial,
@@ -118,7 +118,7 @@ async fn execute(
         return;
     }
 
-    let mut child = match std::process::Command::new(find_adb_path())
+    let mut child = match adb_command()
         .args([
             "-s",
             &device.serial,
@@ -209,4 +209,19 @@ pub fn find_adb_path() -> String {
     } else {
         "adb".into()
     }
+}
+
+#[cfg(target_os = "windows")]
+pub fn adb_command() -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+
+    let mut cmd = std::process::Command::new(find_adb_path());
+    // CREATE_NO_WINDOW
+    cmd.creation_flags(0x08000000);
+    cmd
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn adb_command() -> std::process::Command {
+    std::process::Command::new(find_adb_path())
 }
