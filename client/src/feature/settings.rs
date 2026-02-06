@@ -1,5 +1,5 @@
 /*
- * Copyright 2022, 2025 sukawasatoru
+ * Copyright 2022, 2025, 2026 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ pub trait SettingsView {
         Task::none()
     }
 
-    fn view(&self) -> Element<SettingsViewCommand> {
+    fn view(&self) -> Element<'_, SettingsViewCommand> {
         column![
             button("Reload preferences")
                 .width(292)

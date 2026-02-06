@@ -1,5 +1,5 @@
 /*
- * Copyright 2022, 2025 sukawasatoru
+ * Copyright 2022, 2025, 2026 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -240,7 +240,7 @@ impl MainView {
         }
     }
 
-    pub fn view(&self) -> Element<MainViewCommand> {
+    pub fn view(&self) -> Element<'_, MainViewCommand> {
         let button_width = Length::Fixed(90.0);
         let button_height = Length::Fixed(30.0);
 
