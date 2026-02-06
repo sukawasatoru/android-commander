@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 sukawasatoru
+ * Copyright 2022, 2026 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 use crate::prelude::*;
 use std::fs::File;
-use std::io::{prelude::*, BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, prelude::*};
 use std::path::Path;
 
 pub fn load_toml(prefs_file_path: &Path) -> Fallible<toml::Value> {

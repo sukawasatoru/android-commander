@@ -1,5 +1,5 @@
 /*
- * Copyright 2022, 2025 sukawasatoru
+ * Copyright 2022, 2025, 2026 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ use migrate_0_1_1::migrate_0_1_1;
 use migrate_0_1_2::migrate_0_1_2;
 use migrate_0_1_3::migrate_0_1_3;
 use std::fs::File;
-use std::io::{prelude::*, BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, prelude::*};
 use std::path::Path;
 use std::rc::Rc;
 
