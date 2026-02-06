@@ -1,5 +1,5 @@
 /*
- * Copyright 2022, 2025 sukawasatoru
+ * Copyright 2022, 2025, 2026 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,19 @@
 
 use iced::Theme;
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Preferences {
     pub key_map: KeyMap,
     pub theme: Theme,
+}
+
+impl Default for Preferences {
+    fn default() -> Self {
+        Self {
+            key_map: KeyMap::default(),
+            theme: Theme::Light,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

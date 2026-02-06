@@ -1,5 +1,5 @@
 /*
- * Copyright 2022, 2025 sukawasatoru
+ * Copyright 2022, 2025, 2026 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,15 @@
 use crate::data::asset::Asset;
 use crate::model::AndroidDevice;
 use crate::prelude::*;
-use iced::futures::channel::mpsc::Sender;
-use iced::futures::SinkExt;
-use iced::stream::channel;
 use iced::Subscription;
+use iced::futures::SinkExt;
+use iced::futures::channel::mpsc::Sender;
+use iced::stream::channel;
+use std::hash::Hash;
 use std::io::prelude::*;
 use std::sync::Arc;
 use tempfile::tempdir;
-use tokio::fs::{create_dir_all, File};
+use tokio::fs::{File, create_dir_all};
 use tokio::io::{AsyncWriteExt, BufWriter};
 use tokio::sync::watch::Receiver;
 
@@ -35,16 +36,27 @@ pub enum AdbServerRecipeEvent {
     Error,
 }
 
-struct AdbServerRecipeType;
+struct AdbServerRecipe {
+    device: Arc<AndroidDevice>,
+    rx: Receiver<String>,
+}
+
+impl Hash for AdbServerRecipe {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::any::TypeId::of::<Self>().hash(state);
+        self.device.serial.hash(state);
+    }
+}
 
 pub fn adb_server(
     device: Arc<AndroidDevice>,
     rx: Receiver<String>,
 ) -> Subscription<AdbServerRecipeEvent> {
-    Subscription::run_with_id(
-        std::any::TypeId::of::<AdbServerRecipeType>(),
-        channel(3, move |output| execute(device, rx, output)),
-    )
+    Subscription::run_with(AdbServerRecipe { device, rx }, |data| {
+        let device = data.device.clone();
+        let rx = data.rx.clone();
+        channel(3, |output| execute(device, rx, output))
+    })
 }
 
 #[instrument(skip_all, fields(device = %device.serial))]
@@ -66,7 +78,7 @@ async fn execute(
 
     info!(?server_path);
 
-    if let Err(e) = create_dir_all(&server_path.parent().unwrap()).await {
+    if let Err(e) = create_dir_all(server_path.parent().unwrap()).await {
         warn!(?e, "failed to create temporary directory");
         output.send(YieldValue::Error).await.ok();
         return;
@@ -153,7 +165,7 @@ async fn execute(
             break;
         }
 
-        let data = rx.borrow().clone();
+        let data = rx.borrow_and_update().clone();
         debug!(?data, "send data");
 
         // for ignore init value.

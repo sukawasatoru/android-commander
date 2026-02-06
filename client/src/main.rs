@@ -29,9 +29,9 @@ use android_commander::feature::settings::{
 use android_commander::model::Preferences;
 use android_commander::model::XMessage;
 use android_commander::prelude::*;
-use iced::widget::{button, column, container, row, Space};
+use iced::widget::{button, column, container, row, space};
 use iced::window::{self, resize};
-use iced::{Element, Length, Subscription, Task, Theme};
+use iced::{Element, Length, Subscription, Task, Theme, application};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -164,7 +164,7 @@ impl App {
                     .style(button::secondary)
                     .on_press(AppCommand::ActiveView(ActiveView::Settings)),
             ],
-            Space::with_height(12),
+            space().height(12),
         ];
 
         view = match self.active_view {
@@ -225,46 +225,45 @@ impl App {
     }
 }
 
+fn boot() -> (App, Task<AppCommand>) {
+    let config_dir = directories::ProjectDirs::from("com", "sukawasatoru", "AndroidCommander")
+        .unwrap()
+        .config_dir()
+        .to_path_buf();
+
+    migrate().unwrap();
+
+    let config_file_path = config_dir.join("preferences.toml");
+    let prefs = Arc::new(Preferences::default());
+    (
+        App {
+            active_view: ActiveView::Main,
+            prefs_repo: Arc::new(Mutex::new(PreferencesRepositoryImpl::new(
+                config_file_path.to_owned(),
+            ))),
+            theme: prefs.theme.clone(),
+            state_view_settings: SettingsViewState::new(config_file_path, prefs.theme.clone()),
+            view_main: MainView::new(prefs),
+            window_id: None,
+        },
+        Task::batch([
+            Task::done(AppCommand::OnInit),
+            MainView::init_command().map(AppCommand::MainViewCommand),
+        ]),
+    )
+}
+
 fn main() -> iced::Result {
     dotenv::dotenv().ok();
     tracing_subscriber::fmt::init();
 
-    iced::application(App::title, App::update, App::view)
+    application(boot, App::update, App::view)
+        .title(App::title)
         .theme(App::theme)
         .subscription(App::subscription)
         .window(window::Settings {
             size: MainView::view_size(),
             ..Default::default()
         })
-        .run_with(|| {
-            let config_dir =
-                directories::ProjectDirs::from("com", "sukawasatoru", "AndroidCommander")
-                    .unwrap()
-                    .config_dir()
-                    .to_path_buf();
-
-            migrate().unwrap();
-
-            let config_file_path = config_dir.join("preferences.toml");
-            let prefs = Arc::new(Preferences::default());
-            (
-                App {
-                    active_view: ActiveView::Main,
-                    prefs_repo: Arc::new(Mutex::new(PreferencesRepositoryImpl::new(
-                        config_file_path.to_owned(),
-                    ))),
-                    theme: prefs.theme.clone(),
-                    state_view_settings: SettingsViewState::new(
-                        config_file_path,
-                        prefs.theme.clone(),
-                    ),
-                    view_main: MainView::new(prefs),
-                    window_id: None,
-                },
-                Task::batch([
-                    Task::done(AppCommand::OnInit),
-                    MainView::init_command().map(AppCommand::MainViewCommand),
-                ]),
-            )
-        })
+        .run()
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2022, 2025 sukawasatoru
+ * Copyright 2022, 2025, 2026 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ use crate::prelude::*;
 use iced::Theme;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tokio::fs::{create_dir_all, File};
+use tokio::fs::{File, create_dir_all};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 
 #[async_trait::async_trait]
@@ -128,7 +128,7 @@ impl From<PrefsDto> for Preferences {
     fn from(value: PrefsDto) -> Self {
         Self {
             key_map: KeyMap::from(value.key_map),
-            theme: value.theme.map(Theme::from).unwrap_or_default(),
+            theme: value.theme.map(Theme::from).unwrap_or(Theme::Light),
         }
     }
 }

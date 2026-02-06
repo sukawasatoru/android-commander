@@ -17,15 +17,15 @@
 mod adb_server_recipe;
 
 use crate::data::resource::Resource;
-use crate::feature::main::adb_server_recipe::{adb_command, adb_server, AdbServerRecipeEvent};
+use crate::feature::main::adb_server_recipe::{AdbServerRecipeEvent, adb_command, adb_server};
 use crate::model::send_event_key::SendEventKey;
 use crate::model::{AndroidDevice, KeyMap, Preferences, XMessage};
 use crate::prelude::*;
-use iced::keyboard::{self, key, Key};
+use iced::keyboard::{self, Key, key};
 use iced::widget::{
-    button, checkbox, column, container, pick_list, row, svg, svg::Handle as SvgHandle, Space,
+    button, checkbox, column, container, pick_list, row, space, svg, svg::Handle as SvgHandle,
 };
-use iced::{Background, Color, Element, Event as NativeEvent, Length, Size, Subscription, Task};
+use iced::{Background, Element, Event as NativeEvent, Length, Size, Subscription, Task, color};
 use std::io::BufRead;
 use std::sync::Arc;
 
@@ -144,7 +144,9 @@ impl MainView {
                     NativeEvent::Mouse(_) => {
                         // TODO: support long-press for button.
                     }
-                    NativeEvent::Window(_) | NativeEvent::Touch(_) => {
+                    NativeEvent::Window(_)
+                    | NativeEvent::Touch(_)
+                    | NativeEvent::InputMethod(_) => {
                         // do nothing.
                     }
                 }
@@ -265,67 +267,65 @@ impl MainView {
                 ),
             ]
             .height(button_height),
-            Space::with_height(4),
-            checkbox(
-                "connect",
-                match self.adb_connectivity {
-                    AdbConnectivity::Connecting | AdbConnectivity::Disconnected => false,
-                    AdbConnectivity::Connected => true,
-                },
-            )
+            space().height(4),
+            checkbox(match self.adb_connectivity {
+                AdbConnectivity::Connecting | AdbConnectivity::Disconnected => false,
+                AdbConnectivity::Connected => true,
+            })
+            .label("connect")
             .on_toggle(|_| MainViewCommand::OnAdbConnectClicked),
             match self.adb_connectivity {
                 AdbConnectivity::Connecting => "status: connecting",
                 AdbConnectivity::Connected => "status: connected",
                 AdbConnectivity::Disconnected => "status: disconnected",
             },
-            Space::with_height(16),
+            space().height(16),
             row![
-                button(Space::new(Length::Fill, Length::Fill))
+                button(space().width(Length::Fill).height(Length::Fill))
                     .width(70)
                     .height(button_height)
                     .style(|theme, status| {
                         button::Style {
-                            background: Some(Background::Color(Color::new(1.0, 0.0, 0.0, 1.0))),
+                            background: Some(Background::Color(color!(0xFF0000))),
                             ..button::secondary(theme, status)
                         }
                     })
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorRed)),
-                button(Space::new(Length::Fill, Length::Fill))
+                button(space().width(Length::Fill).height(Length::Fill))
                     .width(70)
                     .height(button_height)
                     .style(|theme, status| {
                         button::Style {
-                            background: Some(Background::Color(Color::new(0.0, 1.0, 0.0, 1.0))),
+                            background: Some(Background::Color(color!(0x00FF00))),
                             ..button::secondary(theme, status)
                         }
                     })
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorGreen)),
-                button(Space::new(Length::Fill, Length::Fill))
+                button(space().width(Length::Fill).height(Length::Fill))
                     .width(70)
                     .height(button_height)
                     .style(|theme, status| {
                         button::Style {
-                            background: Some(Background::Color(Color::new(0.0, 0.0, 1.0, 1.0))),
+                            background: Some(Background::Color(color!(0x0000FF))),
                             ..button::secondary(theme, status)
                         }
                     })
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorBlue)),
-                button(Space::new(Length::Fill, Length::Fill))
+                button(space().width(Length::Fill).height(Length::Fill))
                     .width(70)
                     .height(button_height)
                     .style(|theme, status| {
                         button::Style {
-                            background: Some(Background::Color(Color::new(1.0, 1.0, 0.0, 1.0))),
+                            background: Some(Background::Color(color!(0xFFFF00))),
                             ..button::secondary(theme, status)
                         }
                     })
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorYellow)),
             ]
             .spacing(4),
-            Space::with_height(8),
+            space().height(8),
             row![
-                Space::with_width(90 + 8),
+                space().width(90 + 8),
                 button("Up (k)")
                     .width(button_width)
                     .height(button_height)
@@ -333,9 +333,9 @@ impl MainView {
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadUp)),
             ]
             .spacing(4),
-            Space::with_height(4),
+            space().height(4),
             row![
-                Space::with_width(4),
+                space().width(4),
                 button("Left (h)")
                     .width(button_width)
                     .height(button_height)
@@ -353,20 +353,20 @@ impl MainView {
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadRight)),
             ]
             .spacing(4),
-            Space::with_height(4),
+            space().height(4),
             row![
-                Space::with_width(90 + 8),
+                space().width(90 + 8),
                 button("Down (j)")
                     .width(button_width)
                     .height(button_height)
                     .style(button::secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadDown)),
-                Space::new(button_width, button_height),
+                space().width(button_width).height(button_height),
             ]
             .spacing(4),
-            Space::with_height(8),
+            space().height(8),
             row![
-                Space::with_width(4),
+                space().width(4),
                 button("Back")
                     .width(button_width)
                     .height(button_height)
@@ -379,9 +379,9 @@ impl MainView {
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Home)),
             ]
             .spacing(4),
-            Space::with_height(8),
+            space().height(8),
             row![
-                Space::with_width(4),
+                space().width(4),
                 button(container("1").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
@@ -399,9 +399,9 @@ impl MainView {
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num3)),
             ]
             .spacing(4),
-            Space::with_height(4),
+            space().height(4),
             row![
-                Space::with_width(4),
+                space().width(4),
                 button(container("4").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
@@ -419,9 +419,9 @@ impl MainView {
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num6)),
             ]
             .spacing(4),
-            Space::with_height(4),
+            space().height(4),
             row![
-                Space::with_width(4),
+                space().width(4),
                 button(container("7").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
@@ -439,9 +439,9 @@ impl MainView {
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num9)),
             ]
             .spacing(4),
-            Space::with_height(4),
+            space().height(4),
             row![
-                Space::with_width(90 + 8),
+                space().width(90 + 8),
                 button(container("0").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
