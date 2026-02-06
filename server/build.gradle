@@ -1,6 +1,5 @@
 plugins {
     alias libs.plugins.android.library apply false
-    alias libs.plugins.kotlin.android apply false
 }
 
 def setupAndroidPlugin = { Project project ->
@@ -11,31 +10,11 @@ def setupAndroidPlugin = { Project project ->
 
     project.android {
         compileSdk 36
-        buildToolsVersion '36.0.0'
+        buildToolsVersion '36.1.0'
 
         defaultConfig {
             minSdk 29
             targetSdk 36
-        }
-
-        compileOptions {
-            coreLibraryDesugaringEnabled true
-        }
-    }
-
-    project.dependencies {
-        coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
-    }
-}
-
-def setupKotlinAndroidPlugin = { project ->
-    project.kotlin {
-        jvmToolchain 17
-    }
-
-    project.android {
-        kotlinOptions {
-            freeCompilerArgs += '-Xopt-in=kotlin.RequiresOptIn'
         }
     }
 }
@@ -47,9 +26,6 @@ subprojects {
                 // fallthrough.
             case 'com.android.build.gradle.LibraryPlugin':
                 setupAndroidPlugin(project)
-                break
-            case 'org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper':
-                setupKotlinAndroidPlugin(project)
                 break
             default:
                 break

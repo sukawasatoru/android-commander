@@ -10,7 +10,7 @@ ifeq ($(OS),Windows_NT)
     REN = REN
 endif
 
-VERSION_BUILD_TOOLS=36.0.0
+VERSION_BUILD_TOOLS=36.1.0
 
 .PHONY: all
 all: compile
