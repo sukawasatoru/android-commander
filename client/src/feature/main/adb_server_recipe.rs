@@ -22,11 +22,11 @@ use iced::futures::SinkExt;
 use iced::futures::channel::mpsc::Sender;
 use iced::stream::channel;
 use std::hash::Hash;
-use std::io::prelude::*;
 use std::sync::Arc;
 use tempfile::tempdir;
-use tokio::fs::{File, create_dir_all};
+use tokio::fs::File;
 use tokio::io::{AsyncWriteExt, BufWriter};
+use tokio::process::Command as TokioCommand;
 use tokio::sync::watch::Receiver;
 
 #[derive(Clone, Debug)]
@@ -67,22 +67,17 @@ async fn execute(
 ) {
     use AdbServerRecipeEvent as YieldValue;
 
-    let server_path = match tempdir() {
-        Ok(data) => data.path().join("android-commander-server"),
+    let temp_dir = match tempdir() {
+        Ok(data) => data,
         Err(e) => {
             warn!(?e, "failed to prepare temporary directory");
             output.send(YieldValue::Error).await.ok();
             return;
         }
     };
+    let server_path = temp_dir.path().join("android-commander-server");
 
     info!(?server_path);
-
-    if let Err(e) = create_dir_all(server_path.parent().unwrap()).await {
-        warn!(?e, "failed to create temporary directory");
-        output.send(YieldValue::Error).await.ok();
-        return;
-    }
 
     let server_file = match File::create(&server_path).await {
         Ok(data) => data,
@@ -115,7 +110,7 @@ async fn execute(
         return;
     }
 
-    if let Err(e) = adb_command()
+    match adb_command()
         .args([
             "-s",
             &device.serial,
@@ -123,11 +118,22 @@ async fn execute(
             server_path.to_str().unwrap(),
             "/data/local/tmp/android-commander-server",
         ])
-        .spawn()
+        .status()
+        .await
     {
-        warn!(?e, "failed to push server file");
-        output.send(YieldValue::Error).await.ok();
-        return;
+        Ok(status) if status.success() => {
+            debug!("server file pushed successfully");
+        }
+        Ok(status) => {
+            warn!(?status, "failed to execute adb push");
+            output.send(YieldValue::Error).await.ok();
+            return;
+        }
+        Err(e) => {
+            warn!(?e, "failed to execute adb");
+            output.send(YieldValue::Error).await.ok();
+            return;
+        }
     }
 
     let mut child = match adb_command()
@@ -140,19 +146,7 @@ async fn execute(
         .stdin(std::process::Stdio::piped())
         .spawn()
     {
-        Ok(mut data) => match &data.stdin {
-            Some(_) => {
-                output.send(YieldValue::Connected).await.ok();
-                data
-            },
-            None => {
-                warn!("stdin not found");
-                data.kill().ok();
-                data.wait().ok();
-                output.send(YieldValue::Error).await.ok();
-                return;
-            }
-        },
+        Ok(data) => data,
         Err(e) => {
             warn!(?e);
             output.send(YieldValue::Error).await.ok();
@@ -160,32 +154,56 @@ async fn execute(
         }
     };
 
-    loop {
-        if rx.changed().await.is_err() {
-            break;
-        }
-
-        let data = rx.borrow_and_update().clone();
-        debug!(?data, "send data");
-
-        // for ignore init value.
-        if data.is_empty() {
-            continue;
-        }
-
-        let ret = writeln!(child.stdin.as_mut().unwrap(), "{}", data.as_str());
-        if let Err(e) = ret {
-            warn!(?e);
-            child.kill().ok();
-            child.wait().ok();
+    let mut stdin = match child.stdin.take() {
+        Some(data) => data,
+        None => {
+            warn!("stdin not found");
             output.send(YieldValue::Error).await.ok();
             return;
+        }
+    };
+
+    output.send(YieldValue::Connected).await.ok();
+
+    loop {
+        tokio::select! {
+            result = rx.changed() => {
+                if result.is_err() {
+                    break;
+                }
+
+                let data = rx.borrow_and_update().clone();
+                debug!(?data, "send data");
+
+                // for ignore init value.
+                if data.is_empty() {
+                    continue;
+                }
+
+                let line = format!("{}\n", data.as_str());
+                if let Err(e) = stdin.write_all(line.as_bytes()).await {
+                    warn!(?e);
+                    child.kill().await.ok();
+                    output.send(YieldValue::Error).await.ok();
+                    return;
+                }
+                if let Err(e) = stdin.flush().await {
+                    warn!(?e);
+                    child.kill().await.ok();
+                    output.send(YieldValue::Error).await.ok();
+                    return;
+                }
+            }
+            status = child.wait() => {
+                debug!(?status, "child process exited");
+                output.send(YieldValue::Disconnected).await.ok();
+                return;
+            }
         }
     }
 
     debug!("channel closed");
-    child.kill().ok();
-    child.wait().ok();
+    child.kill().await.ok();
     output.send(YieldValue::Disconnected).await.ok();
 }
 
@@ -224,16 +242,16 @@ pub fn find_adb_path() -> String {
 }
 
 #[cfg(target_os = "windows")]
-pub fn adb_command() -> std::process::Command {
+pub fn adb_command() -> TokioCommand {
     use std::os::windows::process::CommandExt;
 
-    let mut cmd = std::process::Command::new(find_adb_path());
+    let mut cmd = TokioCommand::new(find_adb_path());
     // CREATE_NO_WINDOW
     cmd.creation_flags(0x08000000);
     cmd
 }
 
 #[cfg(not(target_os = "windows"))]
-pub fn adb_command() -> std::process::Command {
-    std::process::Command::new(find_adb_path())
+pub fn adb_command() -> TokioCommand {
+    TokioCommand::new(find_adb_path())
 }

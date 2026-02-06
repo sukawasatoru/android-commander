@@ -26,7 +26,6 @@ use iced::widget::{
     button, checkbox, column, container, pick_list, row, space, svg, svg::Handle as SvgHandle,
 };
 use iced::{Background, Element, Event as NativeEvent, Length, Size, Subscription, Task, color};
-use std::io::BufRead;
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
@@ -535,25 +534,17 @@ fn retrieve_devices_command() -> Task<MainViewCommand> {
 }
 
 async fn retrieve_devices() -> Fallible<Vec<AndroidDevice>> {
-    let child = adb_command()
+    let output = adb_command()
         .arg("devices")
-        .stdout(std::process::Stdio::piped())
-        .spawn()
+        .output()
+        .await
         .context("failed to invoke adb command")?;
 
-    let mut reader = std::io::BufReader::new(child.stdout.context("adb stdout")?);
-    let mut buf = String::new();
     let mut devices = vec![];
-    loop {
-        buf.clear();
-        let bytes = reader.read_line(&mut buf).context("failed to read line")?;
-        if bytes == 0 {
-            break;
-        }
-
-        let segments = buf.split('\t').collect::<Vec<_>>();
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        let segments = line.split('\t').collect::<Vec<_>>();
         if segments.len() != 2 {
-            debug!(%buf, "skip line");
+            debug!(%line, "skip line");
             continue;
         }
         devices.push(AndroidDevice {
