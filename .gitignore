@@ -110,4 +110,7 @@ fabric.properties
 
 # End of https://www.toptal.com/developers/gitignore/api/jetbrains
 
+.idea/AndroidProjectSystem.xml
+.idea/deviceManager.xml
 .idea/jarRepositories.xml
+.idea/runConfigurations.xml

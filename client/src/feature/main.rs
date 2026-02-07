@@ -17,7 +17,7 @@
 mod adb_server_recipe;
 
 use crate::data::resource::Resource;
-use crate::feature::main::adb_server_recipe::{AdbServerRecipeEvent, adb_command, adb_server};
+use crate::feature::main::adb_server_recipe::{AdbServerRecipe, AdbServerRecipeEvent, adb_command};
 use crate::model::send_event_key::SendEventKey;
 use crate::model::{AndroidDevice, KeyMap, Preferences, XMessage};
 use crate::prelude::*;
@@ -232,7 +232,8 @@ impl MainView {
                 };
 
                 Subscription::batch(vec![
-                    adb_server(device, self.adb_server_rx.clone())
+                    AdbServerRecipe::new(device, self.adb_server_rx.clone())
+                        .subscribe()
                         .map(MainViewCommand::AdbServerRecipeResult),
                     iced::event::listen().map(MainViewCommand::Event),
                 ])
