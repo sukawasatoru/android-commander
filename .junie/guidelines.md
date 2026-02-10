@@ -1,12 +1,23 @@
-# Guidelines
+# Instructions for AI Agents
 
-## コーディング規約
+This guideline provides AI agents working on this codebase.
 
-- Clippy の警告は可能な限り解消する
+## Do and Don'ts
 
-## adb 関連
+- Do: adb の Path を解決する場合はそれぞれの OS を考慮した `find_adb_path()` を使用する
+- Do: commit message は英語で記述する
+- Do: コードを変更したら reformat と lint と test を実行する
 
-- `find_adb_path()` で OS ごとに adb のパスを解決する
-- 子プロセスの終了検出には `tokio::select!` を使用して、コマンド受信と `child.wait()` を同時に監視する
-- `adb push` など完了を待つ必要があるコマンドは `.status().await` を使用する
-- バックグラウンドで実行するコマンドは `.spawn()` を使用する
+## Project Structure and Module Organization
+
+- client/ Windows や macOS や Linux から Android 上で動作するサーバープログラムにコマンドを送信するリモコンアプリ
+- client/src/widget_style.rs iced のウィジェットスタイルのカスタマイズを定義するモジュール
+- server/ Android 上で実行する client から stdin でコマンドを受信し実行するサーバープログラム
+
+## Build, Test, and Development Commands
+
+- client build: cd client && make debug
+- client unit test: cd client && cargo test
+- client lint: cd client && cargo clippy
+- client reformat code: cd client && cargo fmt
+- server build: cd server && make

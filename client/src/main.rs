@@ -29,6 +29,7 @@ use android_commander::feature::settings::{
 use android_commander::model::Preferences;
 use android_commander::model::XMessage;
 use android_commander::prelude::*;
+use android_commander::widget_style::button_secondary;
 use iced::widget::{button, column, container, row, space};
 use iced::window::{self, resize};
 use iced::{Element, Length, Subscription, Task, Theme, application};
@@ -156,12 +157,12 @@ impl App {
                 button("Main")
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(AppCommand::ActiveView(ActiveView::Main)),
                 button("Settings")
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(AppCommand::ActiveView(ActiveView::Settings)),
             ],
             space().height(12),

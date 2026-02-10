@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 sukawasatoru
+ * Copyright 2022, 2026 sukawasatoru
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,3 +19,4 @@ pub mod feature;
 pub mod function;
 pub mod model;
 pub mod prelude;
+pub mod widget_style;

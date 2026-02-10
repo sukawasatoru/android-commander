@@ -21,6 +21,7 @@ use crate::feature::main::adb_server_recipe::{AdbServerRecipe, AdbServerRecipeEv
 use crate::model::send_event_key::SendEventKey;
 use crate::model::{AndroidDevice, KeyMap, Preferences, XMessage};
 use crate::prelude::*;
+use crate::widget_style::button_secondary;
 use iced::keyboard::{self, Key, key};
 use iced::widget::{
     button, checkbox, column, container, pick_list, row, space, svg, svg::Handle as SvgHandle,
@@ -258,7 +259,7 @@ impl MainView {
                     ))
                     .width(24)
                 )
-                .style(button::secondary)
+                .style(button_secondary)
                 .on_press(MainViewCommand::OnAdbDevicesReloadClicked),
                 pick_list(
                     self.adb_devices.clone(),
@@ -287,7 +288,7 @@ impl MainView {
                     .style(|theme, status| {
                         button::Style {
                             background: Some(Background::Color(color!(0xFF0000))),
-                            ..button::secondary(theme, status)
+                            ..button_secondary(theme, status)
                         }
                     })
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorRed)),
@@ -297,7 +298,7 @@ impl MainView {
                     .style(|theme, status| {
                         button::Style {
                             background: Some(Background::Color(color!(0x00FF00))),
-                            ..button::secondary(theme, status)
+                            ..button_secondary(theme, status)
                         }
                     })
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorGreen)),
@@ -307,7 +308,7 @@ impl MainView {
                     .style(|theme, status| {
                         button::Style {
                             background: Some(Background::Color(color!(0x0000FF))),
-                            ..button::secondary(theme, status)
+                            ..button_secondary(theme, status)
                         }
                     })
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorBlue)),
@@ -317,7 +318,7 @@ impl MainView {
                     .style(|theme, status| {
                         button::Style {
                             background: Some(Background::Color(color!(0xFFFF00))),
-                            ..button::secondary(theme, status)
+                            ..button_secondary(theme, status)
                         }
                     })
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::ColorYellow)),
@@ -329,7 +330,7 @@ impl MainView {
                 button("Up (k)")
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadUp)),
             ]
             .spacing(4),
@@ -339,17 +340,17 @@ impl MainView {
                 button("Left (h)")
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadLeft)),
                 button("OK")
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadOk)),
                 button("Right (l)")
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadRight)),
             ]
             .spacing(4),
@@ -359,7 +360,7 @@ impl MainView {
                 button("Down (j)")
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::DpadDown)),
                 space().width(button_width).height(button_height),
             ]
@@ -370,12 +371,12 @@ impl MainView {
                 button("Back")
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Back)),
                 button("Home")
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Home)),
             ]
             .spacing(4),
@@ -385,17 +386,17 @@ impl MainView {
                 button(container("1").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num1)),
                 button(container("2").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num2)),
                 button(container("3").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num3)),
             ]
             .spacing(4),
@@ -405,17 +406,17 @@ impl MainView {
                 button(container("4").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num4)),
                 button(container("5").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num5)),
                 button(container("6").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num6)),
             ]
             .spacing(4),
@@ -425,17 +426,17 @@ impl MainView {
                 button(container("7").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num7)),
                 button(container("8").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num8)),
                 button(container("9").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num9)),
             ]
             .spacing(4),
@@ -445,7 +446,7 @@ impl MainView {
                 button(container("0").center_x(Length::Fill))
                     .width(button_width)
                     .height(button_height)
-                    .style(button::secondary)
+                    .style(button_secondary)
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num0)),
             ]
             .spacing(4),

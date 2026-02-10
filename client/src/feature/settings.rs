@@ -17,6 +17,7 @@
 use crate::data::preferences_repository::PreferencesRepository;
 use crate::model::XMessage;
 use crate::prelude::*;
+use crate::widget_style::button_secondary;
 use iced::widget::{button, column, pick_list, row};
 use iced::{Element, Size, Task, Theme};
 use std::path::PathBuf;
@@ -96,17 +97,17 @@ pub trait SettingsView {
         column![
             button("Reload preferences")
                 .width(292)
-                .style(button::secondary)
+                .style(button_secondary)
                 .on_press(SettingsViewCommand::SendXMessage(
                     XMessage::OnPrefsFileUpdated
                 )),
             button("Open preferences directory")
                 .width(292)
-                .style(button::secondary)
+                .style(button_secondary)
                 .on_press(SettingsViewCommand::OnOpenPrefsDirButtonClicked),
             button("Open KeyCode references")
                 .width(292)
-                .style(button::secondary)
+                .style(button_secondary)
                 .on_press(SettingsViewCommand::OnOpenKeycodeReferencesButtonClicked),
             row![
                 "Theme: ",
