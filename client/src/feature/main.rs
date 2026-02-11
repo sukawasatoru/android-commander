@@ -265,7 +265,8 @@ impl MainView {
                     self.adb_devices.clone(),
                     self.adb_devices_selected.clone(),
                     MainViewCommand::AdbDevicesSelected,
-                ),
+                )
+                .width(Length::Fill),
             ]
             .height(button_height),
             space().height(4),
