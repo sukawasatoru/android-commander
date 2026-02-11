@@ -20,6 +20,58 @@ use iced::Theme;
 pub struct Preferences {
     pub key_map: KeyMap,
     pub theme: Theme,
+    pub custom_keys: Vec<CustomKeyEntry>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CustomKeyEntry {
+    pub label: String,
+    pub keycode: String,
+    pub shortcut: Option<char>,
+}
+
+impl std::fmt::Display for CustomKeyEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.shortcut {
+            Some(s) => write!(f, "{} ({})", self.label, s),
+            None => write!(f, "{}", self.label),
+        }
+    }
+}
+
+pub fn default_custom_keys() -> Vec<CustomKeyEntry> {
+    vec![
+        CustomKeyEntry {
+            label: "Power".into(),
+            keycode: "KEYCODE_POWER".into(),
+            shortcut: Some('p'),
+        },
+        CustomKeyEntry {
+            label: "Vol Up".into(),
+            keycode: "KEYCODE_VOLUME_UP".into(),
+            shortcut: None,
+        },
+        CustomKeyEntry {
+            label: "Vol Down".into(),
+            keycode: "KEYCODE_VOLUME_DOWN".into(),
+            shortcut: None,
+        },
+        CustomKeyEntry {
+            label: "Menu".into(),
+            keycode: "KEYCODE_MENU".into(),
+            shortcut: None,
+        },
+        CustomKeyEntry {
+            label: "Ch Up".into(),
+            keycode: "KEYCODE_CHANNEL_UP".into(),
+            shortcut: None,
+        },
+        CustomKeyEntry {
+            label: "Ch Down".into(),
+            keycode: "KEYCODE_CHANNEL_DOWN".into(),
+            shortcut: None,
+        },
+    ]
 }
 
 impl Default for Preferences {
@@ -27,6 +79,7 @@ impl Default for Preferences {
         Self {
             key_map: KeyMap::default(),
             theme: Theme::Light,
+            custom_keys: default_custom_keys(),
         }
     }
 }

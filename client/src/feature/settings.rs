@@ -85,9 +85,10 @@ pub trait SettingsView {
                     self.get_state_mut().theme = prefs.theme.clone();
                 }
             },
-            SettingsViewCommand::SendXMessage(_) | SettingsViewCommand::Sink => {
-                // do nothing.
+            SettingsViewCommand::SendXMessage(data) => {
+                return Task::done(SettingsViewCommand::SendXMessage(data));
             }
+            SettingsViewCommand::Sink => {}
         }
 
         Task::none()
