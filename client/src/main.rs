@@ -258,12 +258,29 @@ fn main() -> iced::Result {
     dotenv::dotenv().ok();
     tracing_subscriber::fmt::init();
 
+    #[cfg(target_os = "windows")]
+    let icon = {
+        use android_commander::data::resource::Resource;
+
+        let png_data = Resource::get("icon.png").expect("icon.png not found");
+        let img = image::load_from_memory(&png_data.data).expect("failed to load icon.png");
+        let width = img.width();
+        let height = img.height();
+        let icon = window::icon::from_rgba(img.to_rgba8().into_vec(), width, height)
+            .expect("failed to create icon from icon.png");
+        Some(icon)
+    };
+
+    #[cfg(not(target_os = "windows"))]
+    let icon = None;
+
     application(boot, App::update, App::view)
         .title(App::title)
         .theme(App::theme)
         .subscription(App::subscription)
         .window(window::Settings {
             size: MainView::view_size(),
+            icon,
             ..Default::default()
         })
         .run()
