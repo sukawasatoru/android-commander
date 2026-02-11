@@ -221,8 +221,6 @@ fn find_adb_path() -> String {
 
 #[cfg(target_os = "windows")]
 pub fn adb_command() -> TokioCommand {
-    use std::os::windows::process::CommandExt;
-
     let mut cmd = TokioCommand::new(find_adb_path());
     // CREATE_NO_WINDOW
     cmd.creation_flags(0x08000000);
