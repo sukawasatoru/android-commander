@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-pub use preferences::{KeyMap, Preferences};
+pub use preferences::{CustomKeyEntry, KeyMap, Preferences, default_custom_keys};
 pub use x_message::XMessage;
 
 mod file_version;

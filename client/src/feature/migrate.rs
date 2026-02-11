@@ -18,6 +18,7 @@ mod migrate_0_1_0;
 mod migrate_0_1_1;
 mod migrate_0_1_2;
 mod migrate_0_1_3;
+mod migrate_0_1_4;
 mod migrate_functions;
 
 use crate::model::FileVersion;
@@ -27,6 +28,7 @@ use migrate_0_1_0::migrate_0_1_0;
 use migrate_0_1_1::migrate_0_1_1;
 use migrate_0_1_2::migrate_0_1_2;
 use migrate_0_1_3::migrate_0_1_3;
+use migrate_0_1_4::migrate_0_1_4;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, prelude::*};
 use std::path::Path;
@@ -37,8 +39,8 @@ pub fn migrate() -> Fallible<()> {
 
     info!(%version, "start migration");
 
-    let project_dirs = directories::ProjectDirs::from("com", "sukawasatoru", "AndroidCommander")
-        .context("directories")?;
+    let project_dirs =
+        ProjectDirs::from("com", "sukawasatoru", "AndroidCommander").context("directories")?;
 
     #[allow(clippy::type_complexity)]
     let functions = prepare_migrate_functions(&project_dirs);
@@ -75,8 +77,11 @@ fn prepare_migrate_functions(
     let prefs_dir = config_dir.clone();
     functions.push(("0.1.2", Box::new(move || migrate_0_1_2(&prefs_dir))));
 
-    let prefs_dir = config_dir;
+    let prefs_dir = config_dir.clone();
     functions.push(("0.1.3", Box::new(move || migrate_0_1_3(&prefs_dir))));
+
+    let prefs_dir = config_dir;
+    functions.push(("0.1.4", Box::new(move || migrate_0_1_4(&prefs_dir))));
 
     functions
 }
@@ -164,7 +169,7 @@ home = "KEYCODE_g"
     #[test]
     fn latest_version() {
         let project_dirs =
-            directories::ProjectDirs::from("com", "sukawasatoru", "AndroidCommanderTest").unwrap();
+            ProjectDirs::from("com", "sukawasatoru", "AndroidCommanderTest").unwrap();
         let last_version = prepare_migrate_functions(&project_dirs)
             .last()
             .unwrap()

@@ -19,7 +19,7 @@ mod adb_server_recipe;
 use crate::data::resource::Resource;
 use crate::feature::main::adb_server_recipe::{AdbServerRecipe, AdbServerRecipeEvent, adb_command};
 use crate::model::send_event_key::SendEventKey;
-use crate::model::{AndroidDevice, KeyMap, Preferences, XMessage};
+use crate::model::{AndroidDevice, CustomKeyEntry, KeyMap, Preferences, XMessage};
 use crate::prelude::*;
 use crate::widget_style::button_secondary;
 use iced::keyboard::{self, Key, key};
@@ -37,8 +37,8 @@ pub enum MainViewCommand {
     InvokeDevicesResult(Vec<Arc<AndroidDevice>>),
     OnAdbConnectClicked,
     OnAdbDevicesReloadClicked,
-    OnNewPrefs(Option<Arc<Preferences>>),
     OnXMessage(XMessage),
+    CustomKeySelected(CustomKeyEntry),
     RequestSendEvent(SendEventKey),
 }
 
@@ -49,6 +49,7 @@ pub struct MainView {
     adb_server_rx: tokio::sync::watch::Receiver<String>,
     adb_server_tx: tokio::sync::watch::Sender<String>,
     prefs: Arc<Preferences>,
+    custom_key_selected: Option<CustomKeyEntry>,
 }
 
 enum AdbConnectivity {
@@ -67,6 +68,7 @@ impl MainView {
             adb_server_rx,
             adb_server_tx,
             prefs,
+            custom_key_selected: None,
         }
     }
 
@@ -105,10 +107,16 @@ impl MainView {
 
                 match data {
                     iced::Event::Keyboard(data) => match data {
-                        keyboard::Event::KeyPressed { key, .. } => {
-                            debug!(?key, "update KeyPressed");
+                        keyboard::Event::KeyPressed {
+                            key, modified_key, ..
+                        } => {
+                            debug!(?key, ?modified_key, "update KeyPressed");
 
-                            let send_event_key = match create_send_event_key(key) {
+                            let send_event_key = match create_send_event_key(
+                                key,
+                                &modified_key,
+                                &self.prefs.custom_keys,
+                            ) {
                                 Some(data) => data,
                                 None => return Task::none(),
                             };
@@ -122,10 +130,16 @@ impl MainView {
                                 warn!(?e, "failed to send the sendevent");
                             }
                         }
-                        keyboard::Event::KeyReleased { key, .. } => {
-                            debug!(?key, "update KeyReleased");
+                        keyboard::Event::KeyReleased {
+                            key, modified_key, ..
+                        } => {
+                            debug!(?key, ?modified_key, "update KeyReleased");
 
-                            let send_event_key = match create_send_event_key(key) {
+                            let send_event_key = match create_send_event_key(
+                                key,
+                                &modified_key,
+                                &self.prefs.custom_keys,
+                            ) {
                                 Some(data) => data,
                                 None => return Task::none(),
                             };
@@ -189,6 +203,9 @@ impl MainView {
             MainViewCommand::OnAdbDevicesReloadClicked => {
                 return retrieve_devices_command();
             }
+            MainViewCommand::CustomKeySelected(data) => {
+                self.custom_key_selected = Some(data);
+            }
             MainViewCommand::RequestSendEvent(data) => {
                 info!(?data, "update RequestSendEvent");
                 match self.adb_connectivity {
@@ -207,15 +224,18 @@ impl MainView {
                     warn!(?e, "failed to send the sendevent");
                 }
             }
-            MainViewCommand::OnNewPrefs(prefs) => {
-                info!("OnNewPreferences");
+            MainViewCommand::OnXMessage(x_message) => {
+                if let XMessage::OnNewPreferences(prefs) = x_message {
+                    info!("OnNewPreferences");
 
-                if let Some(data) = prefs {
-                    self.prefs = data;
+                    self.prefs = prefs;
+
+                    if let Some(selected) = &self.custom_key_selected
+                        && !self.prefs.custom_keys.contains(selected)
+                    {
+                        self.custom_key_selected = None;
+                    }
                 }
-            }
-            MainViewCommand::OnXMessage(_) => {
-                // do nothing.
             }
         }
         Task::none()
@@ -451,36 +471,65 @@ impl MainView {
                     .on_press(MainViewCommand::RequestSendEvent(SendEventKey::Num0)),
             ]
             .spacing(4),
+            space().height(8),
+            row![
+                pick_list(
+                    self.prefs.custom_keys.clone(),
+                    self.custom_key_selected.clone(),
+                    MainViewCommand::CustomKeySelected,
+                )
+                .width(Length::Fill),
+                button("Send")
+                    .width(60)
+                    .height(button_height)
+                    .style(button_secondary)
+                    .on_press_maybe(self.custom_key_selected.as_ref().map(|k| {
+                        MainViewCommand::RequestSendEvent(SendEventKey::Custom(k.keycode.clone()))
+                    }),),
+            ]
+            .spacing(4),
         ]
         .into()
     }
 
     pub fn view_size() -> Size {
-        Size::new(300.0, 480.0)
+        Size::new(300.0, 520.0)
     }
 }
 
-fn create_send_event_key(key: Key) -> Option<SendEventKey> {
+fn create_send_event_key(
+    key: Key,
+    modified_key: &Key,
+    custom_keys: &[CustomKeyEntry],
+) -> Option<SendEventKey> {
     match key.as_ref() {
-        Key::Character("1") => Some(SendEventKey::Num1),
-        Key::Character("2") => Some(SendEventKey::Num2),
-        Key::Character("3") => Some(SendEventKey::Num3),
-        Key::Character("4") => Some(SendEventKey::Num4),
-        Key::Character("5") => Some(SendEventKey::Num5),
-        Key::Character("6") => Some(SendEventKey::Num6),
-        Key::Character("7") => Some(SendEventKey::Num7),
-        Key::Character("8") => Some(SendEventKey::Num8),
-        Key::Character("9") => Some(SendEventKey::Num9),
-        Key::Character("0") => Some(SendEventKey::Num0),
-        Key::Character("j") => Some(SendEventKey::DpadDown),
-        Key::Character("k") => Some(SendEventKey::DpadUp),
-        Key::Character("h") => Some(SendEventKey::DpadLeft),
-        Key::Character("l") => Some(SendEventKey::DpadRight),
-        Key::Character("t") => Some(SendEventKey::Home),
-        Key::Named(key::Named::Enter) => Some(SendEventKey::DpadOk),
-        Key::Named(key::Named::Backspace) => Some(SendEventKey::Back),
-        _ => None,
+        Key::Character("1") => return Some(SendEventKey::Num1),
+        Key::Character("2") => return Some(SendEventKey::Num2),
+        Key::Character("3") => return Some(SendEventKey::Num3),
+        Key::Character("4") => return Some(SendEventKey::Num4),
+        Key::Character("5") => return Some(SendEventKey::Num5),
+        Key::Character("6") => return Some(SendEventKey::Num6),
+        Key::Character("7") => return Some(SendEventKey::Num7),
+        Key::Character("8") => return Some(SendEventKey::Num8),
+        Key::Character("9") => return Some(SendEventKey::Num9),
+        Key::Character("0") => return Some(SendEventKey::Num0),
+        Key::Character("j") => return Some(SendEventKey::DpadDown),
+        Key::Character("k") => return Some(SendEventKey::DpadUp),
+        Key::Character("h") => return Some(SendEventKey::DpadLeft),
+        Key::Character("l") => return Some(SendEventKey::DpadRight),
+        Key::Character("t") => return Some(SendEventKey::Home),
+        Key::Named(key::Named::Enter) => return Some(SendEventKey::DpadOk),
+        Key::Named(key::Named::Backspace) => return Some(SendEventKey::Back),
+        _ => {}
     }
+
+    for entry in custom_keys {
+        if entry.matches_key(&key, modified_key) {
+            return Some(SendEventKey::Custom(entry.keycode.clone()));
+        }
+    }
+
+    None
 }
 
 fn get_key<'a>(key_map: &'a KeyMap, key: &SendEventKey) -> &'a str {
@@ -506,19 +555,30 @@ fn get_key<'a>(key_map: &'a KeyMap, key: &SendEventKey) -> &'a str {
         SendEventKey::Num8 => &key_map.num_8,
         SendEventKey::Num9 => &key_map.num_9,
         SendEventKey::Home => &key_map.home,
+        SendEventKey::Custom(_) => unreachable!(),
+    }
+}
+
+fn resolve_keycode<'a>(key_map: &'a KeyMap, key: &'a SendEventKey) -> &'a str {
+    match key {
+        SendEventKey::Custom(code) => code.as_str(),
+        other => get_key(key_map, other),
     }
 }
 
 fn create_pressed_key_command(key_map: &KeyMap, key: &SendEventKey) -> String {
-    format!("down {}", get_key(key_map, key))
+    format!("down {}", resolve_keycode(key_map, key))
 }
 
 fn create_release_key_command(key_map: &KeyMap, key: &SendEventKey) -> String {
-    format!("up {}", get_key(key_map, key))
+    format!("up {}", resolve_keycode(key_map, key))
 }
 
 fn create_click_key_command(key_map: &KeyMap, key: &SendEventKey) -> String {
-    format!("down {code}\nup {code}", code = get_key(key_map, key))
+    format!(
+        "down {code}\nup {code}",
+        code = resolve_keycode(key_map, key),
+    )
 }
 
 fn retrieve_devices_command() -> Task<MainViewCommand> {

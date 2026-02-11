@@ -15,11 +15,107 @@
  */
 
 use iced::Theme;
+use iced::keyboard::{Key, key};
 
 #[derive(Debug, PartialEq)]
 pub struct Preferences {
     pub key_map: KeyMap,
     pub theme: Theme,
+    pub custom_keys: Vec<CustomKeyEntry>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CustomKeyEntry {
+    pub label: String,
+    pub keycode: String,
+    pub shortcut: Option<String>,
+}
+
+impl CustomKeyEntry {
+    pub fn matches_key(&self, key: &Key, modified_key: &Key) -> bool {
+        let Some(shortcut) = &self.shortcut else {
+            return false;
+        };
+
+        if let Some(named) = parse_named_key(shortcut) {
+            return matches!(key.as_ref(), Key::Named(k) if k == named)
+                || matches!(modified_key.as_ref(), Key::Named(k) if k == named);
+        }
+
+        if let Key::Character(c) = key.as_ref()
+            && c == shortcut.as_str()
+        {
+            return true;
+        }
+        if let Key::Character(c) = modified_key.as_ref()
+            && c == shortcut.as_str()
+        {
+            return true;
+        }
+        false
+    }
+}
+
+fn parse_named_key(s: &str) -> Option<key::Named> {
+    match s {
+        "F1" => Some(key::Named::F1),
+        "F2" => Some(key::Named::F2),
+        "F3" => Some(key::Named::F3),
+        "F4" => Some(key::Named::F4),
+        "F5" => Some(key::Named::F5),
+        "F6" => Some(key::Named::F6),
+        "F7" => Some(key::Named::F7),
+        "F8" => Some(key::Named::F8),
+        "F9" => Some(key::Named::F9),
+        "F10" => Some(key::Named::F10),
+        "F11" => Some(key::Named::F11),
+        "F12" => Some(key::Named::F12),
+        _ => None,
+    }
+}
+
+impl std::fmt::Display for CustomKeyEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.shortcut {
+            Some(s) => write!(f, "{} ({})", self.label, s),
+            None => write!(f, "{}", self.label),
+        }
+    }
+}
+
+pub fn default_custom_keys() -> Vec<CustomKeyEntry> {
+    vec![
+        CustomKeyEntry {
+            label: "Power".into(),
+            keycode: "KEYCODE_POWER".into(),
+            shortcut: Some("p".into()),
+        },
+        CustomKeyEntry {
+            label: "Vol Up".into(),
+            keycode: "KEYCODE_VOLUME_UP".into(),
+            shortcut: Some("F12".into()),
+        },
+        CustomKeyEntry {
+            label: "Vol Down".into(),
+            keycode: "KEYCODE_VOLUME_DOWN".into(),
+            shortcut: Some("F11".into()),
+        },
+        CustomKeyEntry {
+            label: "Menu".into(),
+            keycode: "KEYCODE_MENU".into(),
+            shortcut: None,
+        },
+        CustomKeyEntry {
+            label: "Ch Up".into(),
+            keycode: "KEYCODE_CHANNEL_UP".into(),
+            shortcut: Some("+".into()),
+        },
+        CustomKeyEntry {
+            label: "Ch Down".into(),
+            keycode: "KEYCODE_CHANNEL_DOWN".into(),
+            shortcut: Some("-".into()),
+        },
+    ]
 }
 
 impl Default for Preferences {
@@ -27,6 +123,7 @@ impl Default for Preferences {
         Self {
             key_map: KeyMap::default(),
             theme: Theme::Light,
+            custom_keys: default_custom_keys(),
         }
     }
 }

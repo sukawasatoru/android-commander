@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use crate::model::{FileVersion, KeyMap, Preferences};
+use crate::model::{CustomKeyEntry, FileVersion, KeyMap, Preferences};
 use crate::prelude::*;
 use iced::Theme;
 use serde::{Deserialize, Serialize};
@@ -22,10 +22,9 @@ use std::path::PathBuf;
 use tokio::fs::{File, create_dir_all};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 
-#[async_trait::async_trait]
 pub trait PreferencesRepository: Send + Sync {
-    async fn load(&self) -> Fallible<Preferences>;
-    async fn save(&self, data: Preferences) -> Fallible<()>;
+    fn load(&self) -> impl Future<Output = Fallible<Preferences>> + Send;
+    fn save(&self, data: Preferences) -> impl Future<Output = Fallible<()>> + Send;
 }
 
 pub struct PreferencesRepositoryImpl {
@@ -62,7 +61,6 @@ impl PreferencesRepositoryImpl {
     }
 }
 
-#[async_trait::async_trait]
 impl PreferencesRepository for PreferencesRepositoryImpl {
     async fn load(&self) -> Fallible<Preferences> {
         self.prepare().await?;
@@ -96,7 +94,6 @@ impl PreferencesRepository for PreferencesRepositoryImpl {
 
 pub struct MockPreferencesRepository;
 
-#[async_trait::async_trait]
 impl PreferencesRepository for MockPreferencesRepository {
     async fn load(&self) -> Fallible<Preferences> {
         Ok(Default::default())
@@ -112,6 +109,7 @@ struct PrefsDto {
     version: FileVersion,
     theme: Option<ThemeDto>,
     key_map: KeyMapDto,
+    custom_keys: Option<Vec<CustomKeyEntryDto>>,
 }
 
 impl From<Preferences> for PrefsDto {
@@ -120,6 +118,13 @@ impl From<Preferences> for PrefsDto {
             version: env!("CARGO_PKG_VERSION").parse().unwrap(),
             theme: Some(ThemeDto::from(value.theme)),
             key_map: KeyMapDto::from(value.key_map),
+            custom_keys: Some(
+                value
+                    .custom_keys
+                    .into_iter()
+                    .map(CustomKeyEntryDto::from)
+                    .collect(),
+            ),
         }
     }
 }
@@ -129,6 +134,12 @@ impl From<PrefsDto> for Preferences {
         Self {
             key_map: KeyMap::from(value.key_map),
             theme: value.theme.map(Theme::from).unwrap_or(Theme::Light),
+            custom_keys: value
+                .custom_keys
+                .map(|keys: Vec<CustomKeyEntryDto>| {
+                    keys.into_iter().map(CustomKeyEntry::from).collect()
+                })
+                .unwrap_or_default(),
         }
     }
 }
@@ -235,6 +246,33 @@ impl From<Theme> for ThemeDto {
             Theme::Light => ThemeDto::Light,
             Theme::Dark => ThemeDto::Dark,
             _ => ThemeDto::Light,
+        }
+    }
+}
+
+#[derive(Deserialize, Eq, PartialEq, Serialize)]
+struct CustomKeyEntryDto {
+    label: String,
+    keycode: String,
+    shortcut: Option<String>,
+}
+
+impl From<CustomKeyEntryDto> for CustomKeyEntry {
+    fn from(value: CustomKeyEntryDto) -> Self {
+        Self {
+            label: value.label,
+            keycode: value.keycode,
+            shortcut: value.shortcut,
+        }
+    }
+}
+
+impl From<CustomKeyEntry> for CustomKeyEntryDto {
+    fn from(value: CustomKeyEntry) -> Self {
+        Self {
+            label: value.label,
+            keycode: value.keycode,
+            shortcut: value.shortcut,
         }
     }
 }
