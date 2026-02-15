@@ -18,7 +18,7 @@ dotenv = "=0.15.0"
 iced = { version = "=0.14.0", features = ["svg", "tokio", "sipper"] }
 rust-embed = { version = "=8.11.0", features = ["include-exclude"] }
 serde = { version = "=1.0.228", features = ["derive"] }
-tempfile = "=3.24.0"
+tempfile = "=3.25.0"
 tokio = { version = "=1.49.0", features = ["fs", "io-std", "io-util", "macros", "process", "sync"] }
 toml = "=0.9.11"
 tracing = "=0.1.44"
