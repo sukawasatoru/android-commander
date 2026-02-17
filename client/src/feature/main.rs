@@ -281,12 +281,16 @@ impl MainView {
                 )
                 .style(button_secondary)
                 .on_press(MainViewCommand::OnAdbDevicesReloadClicked),
-                pick_list(
-                    self.adb_devices.clone(),
-                    self.adb_devices_selected.clone(),
-                    MainViewCommand::AdbDevicesSelected,
+                container(
+                    pick_list(
+                        self.adb_devices.clone(),
+                        self.adb_devices_selected.clone(),
+                        MainViewCommand::AdbDevicesSelected,
+                    )
+                    .width(Length::Fill)
+                    .text_line_height(iced::widget::text::LineHeight::Relative(2f32)),
                 )
-                .width(Length::Fill),
+                .clip(true),
             ]
             .height(button_height),
             space().height(4),
@@ -478,7 +482,8 @@ impl MainView {
                     self.custom_key_selected.clone(),
                     MainViewCommand::CustomKeySelected,
                 )
-                .width(Length::Fill),
+                .width(Length::Fill)
+                .text_line_height(iced::widget::text::LineHeight::Relative(2f32)),
                 button("Send")
                     .width(60)
                     .height(button_height)
@@ -487,7 +492,7 @@ impl MainView {
                         MainViewCommand::RequestSendEvent(SendEventKey::Custom(k.keycode.clone()))
                     }),),
             ]
-            .spacing(4),
+            .height(button_height),
         ]
         .into()
     }
