@@ -12,7 +12,7 @@ OriginalFilename = "android-commander.exe"
 winres = "=0.1.12"
 
 [dependencies]
-anyhow = "=1.0.101"
+anyhow = "=1.0.102"
 directories = "=6.0.0"
 dotenv = "=0.15.0"
 iced = { version = "=0.14.0", features = ["svg", "tokio", "sipper"] }
